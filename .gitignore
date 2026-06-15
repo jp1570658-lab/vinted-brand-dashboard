@@ -1,0 +1,30 @@
+# secrets
+.env
+.env.*
+!.env.example
+credentials.md
+
+# deps & build
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# database (DEMO)
+*.db
+*.db-journal
+backend/prisma/dev.db*
+
+# uploads
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# logs
+*.log
+unmatched_sales.log
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
