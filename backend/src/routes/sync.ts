@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { runGmailSync, lastGmailSync } from '../services/gmail';
+import { runWiseSync } from '../services/wise';
 
-// Wise sync is implemented in Step 7. Stub kept until then.
 export const syncRouter = Router();
 
 syncRouter.get(
@@ -23,6 +23,7 @@ syncRouter.get(
 syncRouter.get(
   '/wise',
   asyncHandler(async (_req, res) => {
-    res.json({ ok: true, pending: 'Wise sync is implemented in Step 7' });
+    const result = await runWiseSync();
+    res.json({ ok: true, ...result });
   }),
 );
