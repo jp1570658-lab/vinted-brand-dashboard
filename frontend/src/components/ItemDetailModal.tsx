@@ -60,7 +60,7 @@ export function ItemDetailModal({ item, onClose, onChanged }: Props) {
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 sm:items-center">
       <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-edge bg-card sm:rounded-2xl">
         {item.photoUrl ? (
-          <img src={item.photoUrl} alt="" className="h-48 w-full object-cover" />
+          <img src={item.photoUrl} alt="" loading="lazy" className="h-48 w-full object-cover" />
         ) : (
           <div className="flex h-32 items-center justify-center bg-black/30 text-4xl">👜</div>
         )}
