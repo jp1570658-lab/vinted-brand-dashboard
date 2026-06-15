@@ -1,11 +1,50 @@
-// Step 2 placeholder. Full routing and pages are built in Step 5.
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './hooks/useAuth';
+import { Layout } from './components/Layout';
+import { Login } from './pages/Login';
+import { Dashboard } from './pages/Dashboard';
+import { FutureStock } from './pages/FutureStock';
+import { InTransit } from './pages/InTransit';
+import { InStock } from './pages/InStock';
+import { Sold } from './pages/Sold';
+import { Transactions } from './pages/Transactions';
+import { Settings } from './pages/Settings';
+
+function Gate() {
+  const { authenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-neutral-500">
+        Loading…
+      </div>
+    );
+  }
+
+  if (!authenticated) return <Login />;
+
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/future" element={<FutureStock />} />
+        <Route path="/transit" element={<InTransit />} />
+        <Route path="/stock" element={<InStock />} />
+        <Route path="/sold" element={<Sold />} />
+        <Route path="/transactions" element={<Transactions />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
+  );
+}
+
 export default function App() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-base text-center">
-      <div>
-        <h1 className="text-3xl font-bold text-gold">Vinted Brand Dashboard</h1>
-        <p className="mt-2 text-sm text-neutral-400">Scaffold ready — UI arrives in Step 5.</p>
-      </div>
-    </div>
+    <AuthProvider>
+      <BrowserRouter>
+        <Gate />
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
