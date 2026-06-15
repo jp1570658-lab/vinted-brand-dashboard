@@ -15,6 +15,7 @@ import { runnersRouter } from './routes/runners';
 import { transactionsRouter } from './routes/transactions';
 import { syncRouter } from './routes/sync';
 import { aiRouter } from './routes/ai';
+import { googleRouter } from './routes/google';
 
 export function createApp(): Express {
   const app = express();
@@ -73,6 +74,7 @@ export function createApp(): Express {
 
   // Routes
   app.use('/api/auth', authRouter);
+  app.use('/api/auth/google', googleRouter);
   app.use('/api/items', itemsRouter);
   app.use('/api/runners', runnersRouter);
   app.use('/api/transactions', transactionsRouter);
