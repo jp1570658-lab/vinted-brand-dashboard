@@ -1,0 +1,98 @@
+// Vinted Brand Dashboard — Prisma schema
+// DEMO mode: SQLite (provider below). LIVE mode: change provider to "postgresql"
+// and point DATABASE_URL at Supabase (see DEPLOYMENT.md).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum ItemStatus {
+  SOURCED
+  IN_TRANSIT
+  IN_STOCK
+  SOLD
+}
+
+model Item {
+  id               String     @id @default(uuid())
+  brand            String
+  model            String
+  grade            String?
+  color            String?
+  photoUrl         String?
+  status           ItemStatus @default(SOURCED)
+  sourcedAt        DateTime   @default(now())
+  transitAt        DateTime?
+  stockAt          DateTime?
+  soldAt           DateTime?
+  purchasePrice    Float
+  purchaseCurrency String     @default("EUR")
+  purchasePriceEur Float?
+  shippingCost     Float?
+  customsFees      Float?
+  listedPrice      Float?
+  salePrice        Float?
+  netProfit        Float?
+  notes            String?
+  vintedOrderId    String?
+  saleSource       String? // "AUTO_GMAIL" | "MANUAL"
+  runnerId         String?
+  runner           Runner?    @relation(fields: [runnerId], references: [id])
+  wiseTransactions WiseTransaction[]
+  deletedAt        DateTime? // soft delete
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@index([status])
+  @@index([sourcedAt])
+  @@index([soldAt])
+  @@index([deletedAt])
+}
+
+model Runner {
+  id        String   @id @default(uuid())
+  name      String
+  location  String
+  contact   String?
+  items     Item[]
+  createdAt DateTime @default(now())
+}
+
+model WiseTransaction {
+  id          String   @id @default(uuid())
+  wiseId      String   @unique
+  date        DateTime
+  amount      Float
+  currency    String
+  amountEur   Float?
+  description String
+  category    String?
+  itemId      String?
+  item        Item?    @relation(fields: [itemId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([date])
+  @@index([category])
+}
+
+model GmailSync {
+  id         String   @id @default(uuid())
+  lastSyncAt DateTime
+  emailCount Int
+  salesFound Int
+}
+
+// Persists the Google OAuth refresh token in LIVE mode (Step 6).
+model GoogleToken {
+  id           String   @id @default(uuid())
+  refreshToken String
+  accessToken  String?
+  expiry       DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
