@@ -81,6 +81,12 @@ WISE_API_KEY=...
 WISE_PROFILE_ID=...
 ANTHROPIC_API_KEY=...
 
+# Vinted scraper (daily 06:00 sold-item detection):
+VINTED_DOMAIN=www.vinted.co.uk      # the TLD you log in on
+VINTED_USER_ID=...                   # number from your profile URL /member/<id>
+VINTED_COOKIE=...                    # full Cookie header from a logged-in browser request
+CRON_TZ=Europe/Amsterdam             # your timezone, so 06:00 means your local 6 AM
+
 # Only if using live email alerts (Gmail app password):
 ALERT_EMAIL_USER=you@gmail.com
 ALERT_EMAIL_PASS=your-16-char-app-password
@@ -121,14 +127,36 @@ You're live. 🎉
 
 ---
 
-## Optional — connect Gmail (live sale detection)
+## Sale detection — the daily Vinted scrape (primary)
 
-After the app is deployed with Google credentials set:
+Sold items are detected by scraping your own Vinted wardrobe once a day at 06:00.
+To enable it, set these variables in Railway (Step 4) and `APP_MODE=LIVE`:
+
+1. **`VINTED_DOMAIN`** — the site you log in on, e.g. `www.vinted.co.uk`.
+2. **`VINTED_USER_ID`** — the number in your profile URL: `.../member/12345678`.
+3. **`VINTED_COOKIE`** — your logged-in session cookie:
+   - Open Vinted in your browser and log in.
+   - Press **F12** → **Network** tab → refresh the page.
+   - Click any request to vinted → **Headers** → **Request Headers** → copy the
+     entire **`Cookie:`** value (it must contain `access_token_web`).
+   - Paste it as the `VINTED_COOKIE` value.
+4. **`CRON_TZ`** — your timezone, e.g. `Europe/Amsterdam`, so 06:00 is your local 6 AM.
+
+> The cookie expires periodically. When sales stop being detected, repeat step 3
+> to refresh it. You can test anytime by visiting `https://YOUR-URL/api/sync/vinted`
+> while logged in — it returns how many listings were seen and sales matched.
+
+---
+
+## Optional — Gmail sale detection (fallback)
+
+The Gmail detector no longer runs automatically (the scraper replaced it), but the
+manual trigger is kept. To use it:
 
 1. In Google Cloud Console, add `https://YOUR-URL/api/auth/google/callback` to the
    OAuth client's **Authorized redirect URIs**.
 2. Visit `https://YOUR-URL/api/auth/google` while logged in — approve access.
-3. The refresh token is stored automatically; the 10-minute poller starts detecting Vinted sale emails.
+3. Trigger a one-off sync anytime at `https://YOUR-URL/api/sync/gmail`.
 
 ---
 
