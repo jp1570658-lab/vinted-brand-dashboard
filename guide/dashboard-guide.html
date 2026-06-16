@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    color: #1a1a1a;
+    line-height: 1.55;
+    font-size: 12.5px;
+    margin: 0;
+  }
+  h1 { font-size: 30px; margin: 0 0 4px; color: #0a0a0a; }
+  h2 {
+    font-size: 19px; margin: 26px 0 8px; color: #8a6d1c;
+    border-bottom: 2px solid #e7d9a6; padding-bottom: 5px;
+  }
+  h3 { font-size: 14.5px; margin: 16px 0 4px; color: #1a1a1a; }
+  p { margin: 6px 0; }
+  ul { margin: 6px 0 6px 0; padding-left: 20px; }
+  li { margin: 4px 0; }
+  .cover {
+    background: #0a0a0a; color: #fff; border-radius: 14px;
+    padding: 34px 30px; margin-bottom: 8px;
+  }
+  .cover .bag { font-size: 40px; }
+  .cover h1 { color: #c9a84c; }
+  .cover p { color: #cfcfcf; font-size: 14px; margin-top: 6px; }
+  .tag {
+    display: inline-block; background: #c9a84c; color: #0a0a0a;
+    font-weight: 700; font-size: 11px; padding: 3px 10px; border-radius: 20px;
+    margin-top: 12px; letter-spacing: .3px;
+  }
+  .lead { font-size: 13.5px; color: #333; }
+  .card {
+    border: 1px solid #e3e3e3; border-radius: 10px; padding: 12px 14px;
+    margin: 8px 0; background: #fafafa;
+    break-inside: avoid;
+  }
+  .pill {
+    display: inline-block; font-size: 10.5px; font-weight: 700;
+    padding: 2px 9px; border-radius: 20px; margin-right: 4px; color: #fff;
+  }
+  .p-blue { background: #3b82f6; }
+  .p-amber { background: #f59e0b; }
+  .p-green { background: #22c55e; }
+  .p-grey { background: #9ca3af; }
+  .steps { counter-reset: step; list-style: none; padding-left: 0; }
+  .steps li {
+    counter-increment: step; position: relative; padding-left: 34px; margin: 9px 0;
+  }
+  .steps li::before {
+    content: counter(step); position: absolute; left: 0; top: -1px;
+    width: 24px; height: 24px; background: #c9a84c; color: #0a0a0a;
+    border-radius: 50%; text-align: center; line-height: 24px; font-weight: 700; font-size: 12px;
+  }
+  .tip {
+    border-left: 4px solid #22c55e; background: #f0fdf4;
+    padding: 8px 12px; margin: 8px 0; border-radius: 0 8px 8px 0; break-inside: avoid;
+  }
+  .note {
+    border-left: 4px solid #f59e0b; background: #fffbeb;
+    padding: 8px 12px; margin: 8px 0; border-radius: 0 8px 8px 0; break-inside: avoid;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 11.5px; }
+  th, td { border: 1px solid #e3e3e3; padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #f3e6c6; }
+  .muted { color: #666; font-size: 11px; }
+  .section { break-inside: avoid; }
+  .page-break { page-break-before: always; }
+  code { background: #f0f0f0; padding: 1px 5px; border-radius: 4px; font-size: 11.5px; }
+  .footer { margin-top: 26px; padding-top: 10px; border-top: 1px solid #e3e3e3; color: #888; font-size: 10.5px; }
+</style>
+</head>
+<body>
+
+  <div class="cover">
+    <div class="bag">👜</div>
+    <h1>Vinted Brand Dashboard</h1>
+    <p>Your simple guide to tracking bags, sales, and profit — all in one place.</p>
+    <span class="tag">EASY USER GUIDE</span>
+  </div>
+
+  <p class="lead">
+    This dashboard helps you run your secondhand luxury bag business without spreadsheets.
+    You add a bag, the dashboard follows it from the moment you buy it until it sells, and it
+    shows you how much money you made. This guide explains everything in plain words.
+  </p>
+
+  <h2>1. What is this dashboard?</h2>
+  <p>
+    Think of it as a smart notebook for your bag business. Every bag you buy becomes a "card."
+    Each card moves through four simple stages, so you always know where every bag is and what it's worth.
+  </p>
+
+  <h3>The four stages every bag goes through</h3>
+  <table>
+    <tr><th>Stage</th><th>What it means</th></tr>
+    <tr><td><span class="pill p-blue">Future Stock</span></td><td>You bought the bag. It hasn't shipped to you yet.</td></tr>
+    <tr><td><span class="pill p-amber">In Transit</span></td><td>The bag is on its way to you.</td></tr>
+    <tr><td><span class="pill p-green">In Stock</span></td><td>The bag arrived and is ready to list and sell.</td></tr>
+    <tr><td><span class="pill p-grey">Sold</span></td><td>The bag sold. The dashboard works out your profit.</td></tr>
+  </table>
+  <p class="muted">A bag always moves forward in this order. You move it with one tap when something happens.</p>
+
+  <h2>2. What can it do? (Main features)</h2>
+
+  <div class="card">
+    <h3>📊 Dashboard (home screen)</h3>
+    Shows your key numbers at a glance: money earned this month and this year,
+    your profit, the value of bags you still hold, and how many bags are in each stage.
+  </div>
+
+  <div class="card">
+    <h3>➕ Quick Intake (the gold + button)</h3>
+    Add a new bag in seconds. Take a photo, type the brand and model, pick the price and
+    who sourced it, and tap save. The bag appears instantly in <b>Future Stock</b>.
+  </div>
+
+  <div class="card">
+    <h3>🏷️ Inventory views</h3>
+    Separate screens for <b>Future Stock</b>, <b>In Transit</b>, and <b>In Stock</b> show your bags as
+    picture cards. The <b>Sold</b> screen is a table with sale price, profit, and margin for each bag.
+  </div>
+
+  <div class="card">
+    <h3>⏰ Aging alerts</h3>
+    If a bag has been sitting abroad for more than 14 days, its card turns <b>red and pulses</b>,
+    and a warning bar appears at the top. This tells you which bags are tying up your money for too long.
+  </div>
+
+  <div class="card">
+    <h3>📧 Automatic sale detection (Gmail)</h3>
+    When connected, it reads your Vinted "You've sold!" emails and marks the matching bag as
+    <b>Sold</b> for you — no manual typing.
+  </div>
+
+  <div class="card">
+    <h3>🧾 Expense tracking (Wise)</h3>
+    When connected, it pulls in your payments (shipping, runner payments, stock purchases) and
+    sorts them into categories automatically. You can link any payment to a specific bag.
+  </div>
+
+  <div class="card">
+    <h3>🤖 AI insights (Claude)</h3>
+    The dashboard can suggest a <b>selling price</b> and <b>how fast a bag will sell</b>, rank which
+    sources (runners) make you the most money, and forecast next month's revenue.
+  </div>
+
+  <div class="card">
+    <h3>⚙️ Settings</h3>
+    Manage the people who source your bags ("runners"), trigger a sync by hand, and see how the
+    integrations are doing.
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>3. Getting started in 5 easy steps</h2>
+  <ol class="steps">
+    <li><b>Open the app and log in.</b> Type your password (in demo mode it is <code>demo1234</code>).</li>
+    <li><b>Look at the Dashboard.</b> The cards at the top show your money and how many bags you have.</li>
+    <li><b>Add a bag.</b> Tap the gold <b>+</b> button at the bottom-right, fill in the details, and save.</li>
+    <li><b>Move the bag along.</b> Tap a bag's card, then tap the gold button to send it to the next stage
+        (Future Stock → In Transit → In Stock → Sold).</li>
+    <li><b>Mark it sold.</b> When it sells, enter the sale price. The dashboard shows your profit automatically.</li>
+  </ol>
+
+  <h2>4. How to get the best out of it</h2>
+
+  <div class="tip"><b>Add bags the moment you buy them.</b> The sooner a bag is in the system, the more accurate
+  your numbers and the aging timer will be.</div>
+
+  <div class="tip"><b>Always add a photo.</b> Picture cards make it much faster to recognise a bag at a glance,
+  especially on your phone.</div>
+
+  <div class="tip"><b>Watch the red cards.</b> A red, pulsing card means a bag has been stuck for over 14 days.
+  Chase it up — that's money sitting still.</div>
+
+  <div class="tip"><b>Keep your runners up to date.</b> When you record who sourced each bag, the AI can tell you
+  which sources earn you the most, so you can buy smarter.</div>
+
+  <div class="tip"><b>Use one currency confidently.</b> Enter the price in the currency you actually paid
+  (EUR, GBP, NGN, KES). The dashboard converts everything to euros for you, so profit is always comparable.</div>
+
+  <div class="tip"><b>Check the Dashboard daily.</b> Thirty seconds each morning tells you what sold, what's
+  aging, and what to focus on.</div>
+
+  <h2>5. Using it on your phone (accessibility)</h2>
+  <ul>
+    <li><b>Built for phones first.</b> The layout fits small screens — no pinching or side-scrolling.</li>
+    <li><b>Big tap targets.</b> Buttons and cards are large and easy to press with a thumb.</li>
+    <li><b>Quick Intake in a few taps.</b> Grade and currency are tap-buttons, not fiddly menus.</li>
+    <li><b>Clear colours.</b> Each stage has its own colour so you can read your inventory at a glance.</li>
+    <li><b>Camera friendly.</b> Adding a photo opens your camera or photo library directly.</li>
+    <li><b>Works on computer too.</b> On a wide screen it shows more bags side by side automatically.</li>
+  </ul>
+
+  <h2>6. Two modes: Demo and Live</h2>
+  <table>
+    <tr><th>Mode</th><th>What happens</th><th>Use it when…</th></tr>
+    <tr>
+      <td><b>Demo</b></td>
+      <td>Uses safe pretend data. Nothing connects to the internet. You can click everything freely.</td>
+      <td>You're learning the app or showing it to someone.</td>
+    </tr>
+    <tr>
+      <td><b>Live</b></td>
+      <td>Uses your real database, real Gmail, real Wise, and real AI.</td>
+      <td>You're ready to run your real business on it.</td>
+    </tr>
+  </table>
+  <div class="note"><b>You are currently in Demo mode.</b> Everything works, but the bags, sales, and
+  transactions are examples. To go live, the deployment guide (<code>DEPLOYMENT.md</code>) walks through it
+  step by step.</div>
+
+  <h2>7. Quick answers</h2>
+  <h3>How do I add a bag?</h3>
+  <p>Tap the gold <b>+</b> button (bottom-right), fill in the details, tap save.</p>
+  <h3>How do I move a bag to the next stage?</h3>
+  <p>Tap the bag's card, then tap the gold "→ next stage" button in the pop-up.</p>
+  <h3>Where do I see my profit?</h3>
+  <p>On the <b>Sold</b> screen (per bag) and on the <b>Dashboard</b> (totals for the month and year).</p>
+  <h3>What does a red bag mean?</h3>
+  <p>It has been waiting more than 14 days. Follow it up — it's tying up your cash.</p>
+  <h3>Do I have to type sales manually?</h3>
+  <p>In Live mode with Gmail connected, no — Vinted sale emails mark bags sold for you. You can always do it by hand too.</p>
+
+  <div class="footer">
+    Vinted Brand Dashboard — Easy User Guide · Generated for the dashboard owner.
+    Runs in Demo mode with no setup; switch to Live when ready (see DEPLOYMENT.md).
+  </div>
+
+</body>
+</html>

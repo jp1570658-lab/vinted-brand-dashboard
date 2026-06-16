@@ -21,7 +21,13 @@ backend/uploads/*
 
 # logs
 *.log
+*.err
+*.out
 unmatched_sales.log
+
+# ad build intermediates & proprietary Windows fonts (copied locally at build time)
+ad/work/*.ttf
+ad/work/frames/
 
 # os / editor
 .DS_Store
