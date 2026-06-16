@@ -14,3 +14,7 @@
 | 10 | Email alerts in DEMO | Log to console, do not send | No SMTP/OAuth creds in DEMO; never crash. |
 | 11 | Currency map | `{ NGN: 0.00055, KES: 0.0069, EUR: 1.0, GBP: 1.17 }` | Exact values from CLAUDE.md Step 4. |
 | 12 | netProfit formula | salePrice − purchasePriceEur − shippingCost − customsFees (missing → 0) | Spec says auto-calc on SOLD; this is the natural margin. |
+| 13 | Sale detection source | Vinted wardrobe scrape daily at 06:00, replacing the 10-min Gmail poller | User asked to detect sold items by scraping their own Vinted account instead of parsing Gmail. Manual `/api/sync/gmail` kept as fallback. |
+| 14 | "Sold" signal for the scraper | Wardrobe diff — a listing active on a prior run that vanishes is treated as sold | Vinted's private transactions API is fragile/unstable; disappearance is a robust signal from the public wardrobe endpoint. First run only records a baseline. |
+| 15 | Scraper failure safety | Abort if the wardrobe fetch returns 0 listings | Prevents an expired cookie / blocked request from marking the entire wardrobe as sold. |
+| 16 | Vinted auth | Session cookie (`VINTED_COOKIE`) + `VINTED_USER_ID` from `.env`, read-only on own account | No public API; avoids automating login (captcha/2FA). User refreshes the cookie when it expires. |
