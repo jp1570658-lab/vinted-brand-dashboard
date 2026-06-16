@@ -40,7 +40,7 @@ model Item {
   netProfit        Float?
   notes            String?
   vintedOrderId    String?
-  saleSource       String? // "AUTO_GMAIL" | "MANUAL"
+  saleSource       String? // "AUTO_GMAIL" | "AUTO_VINTED" | "MANUAL"
   runnerId         String?
   runner           Runner?    @relation(fields: [runnerId], references: [id])
   wiseTransactions WiseTransaction[]
@@ -85,6 +85,30 @@ model GmailSync {
   lastSyncAt DateTime
   emailCount Int
   salesFound Int
+}
+
+// One row per run of the daily Vinted wardrobe scrape (replaces Gmail polling).
+model VintedSync {
+  id           String   @id @default(uuid())
+  lastSyncAt   DateTime
+  listingsSeen Int
+  salesFound   Int
+}
+
+// Snapshot of wardrobe listings, used for diff-based sold detection: a listing
+// that was active on a previous run but is gone today is treated as sold.
+model VintedListing {
+  id           String   @id @default(uuid())
+  vintedItemId String   @unique
+  title        String
+  price        Float?
+  active       Boolean  @default(true)
+  soldDetected Boolean  @default(false)
+  firstSeenAt  DateTime @default(now())
+  lastSeenAt   DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([active])
 }
 
 // Persists the Google OAuth refresh token in LIVE mode (Step 6).
