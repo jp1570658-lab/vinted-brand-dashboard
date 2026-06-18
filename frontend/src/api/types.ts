@@ -61,6 +61,37 @@ export interface Stats {
   countByStatus: Record<ItemStatus, number>;
 }
 
+export interface MonthPoint {
+  month: string;
+  label: string;
+  revenue: number;
+  profit: number;
+  units: number;
+}
+
+export interface BreakdownRow {
+  key: string;
+  units: number;
+  revenue: number;
+  profit: number;
+  avgMarginPct: number | null;
+  avgDaysToSell: number | null;
+}
+
+export interface Analytics {
+  totals: {
+    units: number;
+    revenue: number;
+    profit: number;
+    avgMarginPct: number | null;
+    avgDaysToSell: number | null;
+  };
+  monthly: MonthPoint[];
+  byBrand: BreakdownRow[];
+  byRunner: BreakdownRow[];
+  generatedAt: string;
+}
+
 export interface Pagination {
   page: number;
   limit: number;

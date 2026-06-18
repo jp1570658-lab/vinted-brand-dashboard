@@ -1,5 +1,6 @@
 import { apiGet, apiSend, apiUpload } from './client';
 import type {
+  Analytics,
   Item,
   ItemStatus,
   Paged,
@@ -29,6 +30,7 @@ export const api = {
     },
     get: (id: string) => apiGet<Item>(`/api/items/${id}`),
     stats: () => apiGet<Stats>('/api/items/stats'),
+    analytics: () => apiGet<Analytics>('/api/items/analytics'),
     create: (form: FormData) => apiUpload<Item>('/api/items', form),
     update: (id: string, patch: Partial<Item> & { status?: ItemStatus }) =>
       apiSend<Item>(`/api/items/${id}`, 'PATCH', patch),
