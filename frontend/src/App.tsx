@@ -7,6 +7,7 @@ import { FutureStock } from './pages/FutureStock';
 import { InTransit } from './pages/InTransit';
 import { InStock } from './pages/InStock';
 import { Sold } from './pages/Sold';
+import { Analytics } from './pages/Analytics';
 import { Transactions } from './pages/Transactions';
 import { Settings } from './pages/Settings';
 
@@ -31,6 +32,7 @@ function Gate() {
         <Route path="/transit" element={<InTransit />} />
         <Route path="/stock" element={<InStock />} />
         <Route path="/sold" element={<Sold />} />
+        <Route path="/analytics" element={<Analytics />} />
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />

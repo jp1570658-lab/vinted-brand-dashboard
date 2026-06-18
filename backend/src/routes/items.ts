@@ -8,6 +8,7 @@ import { upload } from '../middleware/upload';
 import { toEur, SUPPORTED_CURRENCIES } from '../services/currency';
 import { calcNetProfit, calcMarginPct } from '../lib/profit';
 import { getDashboardStats } from '../lib/stats';
+import { getAnalytics } from '../lib/analytics';
 
 export const itemsRouter = Router();
 
@@ -65,6 +66,14 @@ itemsRouter.get(
   '/stats',
   asyncHandler(async (_req, res) => {
     res.json(await getDashboardStats());
+  }),
+);
+
+// GET /api/items/analytics  (profit trends + brand/runner breakdowns)
+itemsRouter.get(
+  '/analytics',
+  asyncHandler(async (_req, res) => {
+    res.json(await getAnalytics());
   }),
 );
 

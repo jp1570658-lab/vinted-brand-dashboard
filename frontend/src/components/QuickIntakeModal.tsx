@@ -25,7 +25,8 @@ export function QuickIntakeModal({ open, onClose, onCreated }: Props) {
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -93,21 +94,45 @@ export function QuickIntakeModal({ open, onClose, onCreated }: Props) {
         </div>
 
         {/* Photo */}
-        <button
-          onClick={() => fileRef.current?.click()}
-          className="mb-4 flex aspect-video w-full items-center justify-center overflow-hidden rounded-xl border border-dashed border-edge bg-black/30 text-neutral-500"
-        >
-          {preview ? (
-            <img src={preview} alt="preview" className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-sm">📷 Tap to add photo</span>
-          )}
-        </button>
+        <div className="mb-4">
+          <div className="flex aspect-video w-full items-center justify-center overflow-hidden rounded-xl border border-dashed border-edge bg-black/30 text-neutral-500">
+            {preview ? (
+              <img src={preview} alt="preview" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-sm">📷 Add a photo</span>
+            )}
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => cameraRef.current?.click()}
+              className="rounded-lg border border-edge bg-black/20 py-2 text-sm text-neutral-300 transition hover:border-neutral-600"
+            >
+              📷 {preview ? 'Retake photo' : 'Take photo'}
+            </button>
+            <button
+              type="button"
+              onClick={() => galleryRef.current?.click()}
+              className="rounded-lg border border-edge bg-black/20 py-2 text-sm text-neutral-300 transition hover:border-neutral-600"
+            >
+              🖼️ {preview ? 'Change' : 'Choose from gallery'}
+            </button>
+          </div>
+        </div>
+        {/* Camera capture (opens camera directly on mobile) */}
         <input
-          ref={fileRef}
+          ref={cameraRef}
           type="file"
           accept="image/*"
           capture="environment"
+          onChange={onFile}
+          className="hidden"
+        />
+        {/* Gallery / file picker (no capture → opens photo library or files) */}
+        <input
+          ref={galleryRef}
+          type="file"
+          accept="image/*"
           onChange={onFile}
           className="hidden"
         />
