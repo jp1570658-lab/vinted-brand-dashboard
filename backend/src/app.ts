@@ -7,6 +7,7 @@ import cors from 'cors';
 import session from 'express-session';
 import rateLimit from 'express-rate-limit';
 import { APP_MODE } from './services/mode';
+import { UPLOADS_DIR } from './lib/uploads';
 import { authMiddleware } from './middleware/auth';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { authRouter } from './routes/auth';
@@ -62,7 +63,11 @@ export function createApp(): Express {
   );
 
   // Static uploads (served before auth so <img> tags work without a session cookie on the asset).
-  app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
+  // UPLOADS_DIR should point at a persistent volume in production — see lib/uploads.ts.
+  app.use('/uploads', express.static(UPLOADS_DIR));
+  // Missing upload → clean 404, so a deleted/absent file doesn't fall through to the SPA
+  // catch-all and return index.html (which renders as a broken image).
+  app.use('/uploads', (_req, res) => res.status(404).json({ error: 'Image not found' }));
 
   // Health is public and mode-aware.
   app.get('/api/health', (_req, res) => {
