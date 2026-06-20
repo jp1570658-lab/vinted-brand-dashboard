@@ -111,6 +111,19 @@ model VintedListing {
   @@index([active])
 }
 
+// Persists the live Vinted web session in LIVE mode. Vinted's refresh tokens are
+// single-use and rotate on every refresh, so the latest cookie jar (rotating
+// refresh_token_web + _vinted_fr_session + datadome) must survive across runs and
+// restarts. `seed` records the VINTED_COOKIE env value this row was bootstrapped
+// from, so updating the env (after a re-login) transparently re-seeds the jar.
+model VintedAuth {
+  id        String   @id @default("singleton")
+  cookie    String   // live cookie jar, updated after every token refresh
+  seed      String   // the VINTED_COOKIE env value this jar was initialized from
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // Persists the Google OAuth refresh token in LIVE mode (Step 6).
 model GoogleToken {
   id           String   @id @default(uuid())
