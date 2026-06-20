@@ -1,6 +1,7 @@
 import type { Item } from '../api/types';
 import { eur, money, shortDate } from '../lib/format';
 import { AgingBadge, isAged } from './AgingBadge';
+import { ItemImage } from './ItemImage';
 import { stageDateField } from '../lib/status';
 
 interface Props {
@@ -24,21 +25,20 @@ export function ItemCard({ item, onClick, showAging, showListed }: Props) {
       }`}
     >
       <div className="relative aspect-square w-full bg-black/30">
-        {item.photoUrl ? (
-          <img
-            src={item.photoUrl}
-            alt={`${item.brand} ${item.model}`}
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-3xl text-neutral-700">
-            👜
-          </div>
-        )}
+        <ItemImage
+          src={item.photoUrl}
+          alt={`${item.brand} ${item.model}`}
+          className="h-full w-full object-cover"
+          fallbackClassName="flex h-full w-full items-center justify-center text-3xl text-neutral-700"
+        />
         {item.grade && (
           <span className="absolute left-2 top-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-gold">
             {item.grade}
+          </span>
+        )}
+        {item.vintedLikes != null && item.vintedLikes > 0 && (
+          <span className="absolute right-2 top-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-red-300">
+            ❤ {item.vintedLikes}
           </span>
         )}
       </div>

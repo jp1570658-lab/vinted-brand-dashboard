@@ -4,6 +4,7 @@ import { api } from '../api/endpoints';
 import { eur, money, shortDate } from '../lib/format';
 import { STATUS_ORDER, STATUS_LABEL } from '../lib/status';
 import { StatusBadge } from './StatusBadge';
+import { ItemImage } from './ItemImage';
 
 interface Props {
   item: Item | null;
@@ -59,11 +60,12 @@ export function ItemDetailModal({ item, onClose, onChanged }: Props) {
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 sm:items-center">
       <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-edge bg-card sm:rounded-2xl">
-        {item.photoUrl ? (
-          <img src={item.photoUrl} alt="" loading="lazy" className="h-48 w-full object-cover" />
-        ) : (
-          <div className="flex h-32 items-center justify-center bg-black/30 text-4xl">👜</div>
-        )}
+        <ItemImage
+          src={item.photoUrl}
+          alt={`${item.brand} ${item.model}`}
+          className="h-48 w-full object-cover"
+          fallbackClassName="flex h-32 items-center justify-center bg-black/30 text-4xl"
+        />
         <div className="p-5">
           <div className="flex items-start justify-between">
             <div>
@@ -87,6 +89,7 @@ export function ItemDetailModal({ item, onClose, onChanged }: Props) {
             <Row label="Runner" value={item.runner?.name ?? '—'} />
             <Row label="Sourced" value={shortDate(item.sourcedAt)} />
             {item.listedPrice != null && <Row label="Listed" value={eur(item.listedPrice)} />}
+            {item.vintedLikes != null && <Row label="Vinted likes" value={`❤ ${item.vintedLikes}`} />}
             {item.salePrice != null && <Row label="Sold for" value={eur(item.salePrice)} />}
             {item.netProfit != null && (
               <Row

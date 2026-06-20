@@ -38,6 +38,7 @@ model Item {
   listedPrice      Float?
   salePrice        Float?
   netProfit        Float?
+  vintedLikes      Int? // latest ❤ favourite count scraped from the Vinted listing
   notes            String?
   vintedOrderId    String?
   saleSource       String? // "AUTO_GMAIL" | "AUTO_VINTED" | "MANUAL"
@@ -98,17 +99,33 @@ model VintedSync {
 // Snapshot of wardrobe listings, used for diff-based sold detection: a listing
 // that was active on a previous run but is gone today is treated as sold.
 model VintedListing {
-  id           String   @id @default(uuid())
-  vintedItemId String   @unique
-  title        String
-  price        Float?
-  active       Boolean  @default(true)
-  soldDetected Boolean  @default(false)
-  firstSeenAt  DateTime @default(now())
-  lastSeenAt   DateTime
-  createdAt    DateTime @default(now())
+  id             String   @id @default(uuid())
+  vintedItemId   String   @unique
+  title          String
+  price          Float?
+  favouriteCount Int? // latest ❤ likes on the listing (demand signal)
+  active         Boolean  @default(true)
+  soldDetected   Boolean  @default(false)
+  firstSeenAt    DateTime @default(now())
+  lastSeenAt     DateTime
+  createdAt      DateTime @default(now())
 
   @@index([active])
+}
+
+// One row per listing per scrape — the engagement time-series. Lets the AI see how
+// demand (likes) and price evolved over a listing's life and where it stood when it
+// sold, instead of only a single point-in-time number.
+model VintedListingSnapshot {
+  id           String   @id @default(uuid())
+  vintedItemId String
+  likes        Int?
+  price        Float?
+  active       Boolean
+  takenAt      DateTime @default(now())
+
+  @@index([vintedItemId])
+  @@index([takenAt])
 }
 
 // Persists the live Vinted web session in LIVE mode. Vinted's refresh tokens are

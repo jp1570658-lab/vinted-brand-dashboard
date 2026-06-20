@@ -86,11 +86,16 @@ export async function getPricing(itemId: string): Promise<any> {
 
   const summary = sold
     .slice(0, 30)
-    .map((s) => `${s.brand} ${s.model} ${s.grade ?? ''} sold €${s.salePrice} in ${s.soldAt && s.stockAt ? daysBetween(s.soldAt, s.stockAt) : '?'}d`)
+    .map(
+      (s) =>
+        `${s.brand} ${s.model} ${s.grade ?? ''} sold €${s.salePrice} in ${s.soldAt && s.stockAt ? daysBetween(s.soldAt, s.stockAt) : '?'}d` +
+        `${s.vintedLikes != null ? ` with ${s.vintedLikes} likes` : ''}`,
+    )
     .join('; ');
+  const itemLikes = item.vintedLikes != null ? ` (currently ${item.vintedLikes} likes on Vinted)` : '';
   return callClaude(
-    'You are a pricing analyst for a luxury secondhand bag reseller on Vinted.',
-    `Analyze the last 90 days of sales: ${summary}.\nNew item: ${item.brand} ${item.model} ${item.grade ?? ''} ${item.color ?? ''}.\nReturn JSON only: { daysToSell: number, recommendedPrice: number, confidence: "high"|"medium"|"low", reasoning: string }`,
+    'You are a pricing analyst for a luxury secondhand bag reseller on Vinted. Likes on a listing signal demand: more likes generally support a higher price and a faster sale.',
+    `Analyze the last 90 days of sales (price, days-to-sell, and likes-at-sale where known): ${summary}.\nNew item: ${item.brand} ${item.model} ${item.grade ?? ''} ${item.color ?? ''}${itemLikes}.\nReturn JSON only: { daysToSell: number, recommendedPrice: number, confidence: "high"|"medium"|"low", reasoning: string }`,
   );
 }
 
@@ -130,13 +135,16 @@ export async function getForecast(): Promise<any> {
   }
   const inStock = await prisma.item.findMany({
     where: { status: { in: ['SOURCED', 'IN_TRANSIT', 'IN_STOCK'] }, deletedAt: null },
-    select: { purchasePriceEur: true, sourcedAt: true, status: true },
+    select: { purchasePriceEur: true, sourcedAt: true, status: true, vintedLikes: true },
   });
   const inventoryValue = inStock.reduce((sum, i) => sum + (i.purchasePriceEur ?? 0), 0);
   const stuck = inStock.filter((i) => i.status === 'SOURCED' && daysBetween(now, i.sourcedAt) > 14).length;
+  // Demand signal: total likes accumulating on live (IN_STOCK) listings.
+  const liveListings = inStock.filter((i) => i.status === 'IN_STOCK');
+  const likesOnLive = liveListings.reduce((sum, i) => sum + (i.vintedLikes ?? 0), 0);
 
   return callClaude(
-    'You are a financial forecasting analyst.',
-    `Last 3 months weekly sales: ${JSON.stringify(weekly)}. Current inventory value: €${inventoryValue.toFixed(0)}. Items stuck >14 days: ${stuck}.\nReturn JSON: { forecastRevenue: number, forecastProfit: number, confidence: "high"|"medium"|"low", risks: string[], narrative: string }`,
+    'You are a financial forecasting analyst. Likes accumulating on live listings indicate near-term demand and pending sales.',
+    `Last 3 months weekly sales: ${JSON.stringify(weekly)}. Current inventory value: €${inventoryValue.toFixed(0)}. Items stuck >14 days: ${stuck}. Live listings: ${liveListings.length} carrying ${likesOnLive} likes total.\nReturn JSON: { forecastRevenue: number, forecastProfit: number, confidence: "high"|"medium"|"low", risks: string[], narrative: string }`,
   );
 }
