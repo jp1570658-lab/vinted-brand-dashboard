@@ -29,6 +29,7 @@ export interface Item {
   listedPrice?: number | null;
   salePrice?: number | null;
   netProfit?: number | null;
+  vintedLikes?: number | null;
   marginPct?: number | null;
   notes?: string | null;
   vintedOrderId?: string | null;
