@@ -13,7 +13,8 @@ export function Settings() {
   const [location, setLocation] = useState('');
   const [gmailMsg, setGmailMsg] = useState<string | null>(null);
   const [wiseMsg, setWiseMsg] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState<'gmail' | 'wise' | null>(null);
+  const [vintedMsg, setVintedMsg] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState<'gmail' | 'wise' | 'vinted' | null>(null);
 
   const loadRunners = useCallback(() => {
     api.runners.list().then((r) => setRunners(r.data));
@@ -60,6 +61,22 @@ export function Settings() {
     }
   }
 
+  async function importVinted() {
+    setSyncing('vinted');
+    setVintedMsg(null);
+    try {
+      const r = await api.sync.vintedImport();
+      setVintedMsg(
+        `Imported ${r.created ?? 0} new, ${r.updatedToSold ?? 0} marked sold, ${r.skipped ?? 0} skipped (of ${r.total ?? 0} listings).`,
+      );
+      bumpRefresh();
+    } catch (e: any) {
+      setVintedMsg(e?.message || 'Import failed');
+    } finally {
+      setSyncing(null);
+    }
+  }
+
   return (
     <>
       <TopNav title="Settings" onMenu={onMenu} />
@@ -78,6 +95,13 @@ export function Settings() {
               busy={syncing === 'wise'}
               onSync={syncWise}
               message={wiseMsg}
+            />
+            <SyncRow
+              label="Vinted — import listings as items"
+              busy={syncing === 'vinted'}
+              onSync={importVinted}
+              message={vintedMsg}
+              cta="Import"
             />
             <p className="text-xs text-neutral-600">
               Mode is <strong>{mode}</strong>. In DEMO, syncs return realistic mock data.
@@ -132,11 +156,13 @@ function SyncRow({
   busy,
   onSync,
   message,
+  cta = 'Sync',
 }: {
   label: string;
   busy: boolean;
   onSync: () => void;
   message: string | null;
+  cta?: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-black/20 p-3">
@@ -145,7 +171,7 @@ function SyncRow({
         {message && <div className="mt-0.5 text-xs text-neutral-500">{message}</div>}
       </div>
       <button onClick={onSync} disabled={busy} className="btn-ghost shrink-0">
-        {busy ? 'Syncing…' : 'Sync now'}
+        {busy ? `${cta}ing…` : `${cta} now`}
       </button>
     </div>
   );

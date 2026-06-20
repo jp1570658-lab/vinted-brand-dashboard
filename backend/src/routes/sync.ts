@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { runGmailSync, lastGmailSync } from '../services/gmail';
-import { runVintedSync, lastVintedSync } from '../services/vinted';
+import { runVintedSync, lastVintedSync, importWardrobe } from '../services/vinted';
 import { runWiseSync } from '../services/wise';
 import { sendAgingAlert, getFlaggedItems } from '../services/alerts';
 
@@ -44,6 +44,16 @@ syncRouter.get(
   '/vinted/status',
   asyncHandler(async (_req, res) => {
     res.json({ last: await lastVintedSync() });
+  }),
+);
+
+// Import the whole Vinted wardrobe into the dashboard as items (active -> IN_STOCK,
+// closed -> SOLD). Idempotent; safe to re-run.
+syncRouter.post(
+  '/vinted/import',
+  asyncHandler(async (_req, res) => {
+    const result = await importWardrobe();
+    res.json({ ok: true, ...result });
   }),
 );
 

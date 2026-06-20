@@ -61,6 +61,8 @@ export const api = {
   sync: {
     gmail: () => apiGet<any>('/api/sync/gmail'),
     wise: () => apiGet<any>('/api/sync/wise'),
+    vinted: () => apiGet<any>('/api/sync/vinted'),
+    vintedImport: () => apiSend<any>('/api/sync/vinted/import', 'POST'),
   },
 
   ai: {

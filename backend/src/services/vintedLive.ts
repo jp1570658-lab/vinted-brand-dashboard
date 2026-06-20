@@ -36,6 +36,10 @@ export interface VintedListing {
   title: string;
   price: number | null; // EUR (or listing currency — used only as the sale price hint)
   isClosed: boolean; // true once the listing is sold/delisted; it stays in the wardrobe
+  // Extra metadata, used by the wardrobe → dashboard importer (not by sale detection):
+  brand: string | null;
+  photoUrl: string | null;
+  condition: string | null; // Vinted item condition, e.g. "Very good"
 }
 
 const USER_AGENT =
@@ -207,12 +211,20 @@ export async function fetchWardrobe(): Promise<VintedListing[]> {
 
     for (const it of data.items as any[]) {
       if (it?.id == null) continue;
+      // Vinted's shapes vary: brand may be a string or {title}; photos[] entries
+      // expose `url` (and sometimes `full_size_url`); `status` holds the condition.
+      const brand =
+        it.brand_title ?? (typeof it.brand === 'string' ? it.brand : (it.brand?.title ?? null));
+      const photo = Array.isArray(it.photos) && it.photos[0] ? it.photos[0] : null;
       listings.push({
         vintedItemId: String(it.id),
         title:
           String(it.title ?? `${it.brand_title ?? ''} ${it.name ?? ''}`).trim() || `item ${it.id}`,
         price: parsePrice(it.price) ?? parsePrice(it.total_item_price),
         isClosed: Boolean(it.is_closed),
+        brand: brand ? String(brand) : null,
+        photoUrl: photo ? (photo.url ?? photo.full_size_url ?? null) : null,
+        condition: typeof it.status === 'string' ? it.status : null,
       });
     }
   }

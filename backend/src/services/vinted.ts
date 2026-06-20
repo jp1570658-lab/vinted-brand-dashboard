@@ -138,3 +138,91 @@ export async function runVintedSync(): Promise<VintedSyncResult> {
 export async function lastVintedSync() {
   return prisma.vintedSync.findFirst({ orderBy: { lastSyncAt: 'desc' } });
 }
+
+// --- Wardrobe → dashboard import -------------------------------------------
+
+export interface VintedImportResult {
+  total: number; // listings seen in the wardrobe
+  created: number; // new items added
+  updatedToSold: number; // previously-imported items flipped to SOLD
+  skipped: number; // already imported, nothing to change
+}
+
+/** Map a Vinted condition string onto the dashboard's A/B/C grade (null = ungraded). */
+function mapGrade(condition: string | null): string | null {
+  if (!condition) return null;
+  const c = condition.toLowerCase();
+  if (c.includes('new')) return 'A';
+  if (c.includes('very good') || c.includes('good')) return 'B';
+  if (c.includes('satisf')) return 'C';
+  return null;
+}
+
+/**
+ * Import the Vinted wardrobe into the dashboard as Item records. Active listings
+ * become IN_STOCK, closed/sold listings become SOLD (sale price = listing price;
+ * soldAt/netProfit left null because Vinted doesn't expose the real sale date or
+ * your cost — the operator fills purchase price in afterwards). Idempotent: items
+ * are de-duplicated by vintedOrderId, and a previously-imported IN_STOCK item is
+ * flipped to SOLD if its listing has since closed.
+ */
+export async function importWardrobe(): Promise<VintedImportResult> {
+  if (isDemo()) {
+    throw new Error('Vinted import is only available in LIVE mode.');
+  }
+
+  const { fetchWardrobe } = await import('./vintedLive');
+  const listings = await fetchWardrobe(); // also refreshes + persists the session
+
+  let created = 0;
+  let updatedToSold = 0;
+  let skipped = 0;
+  const now = new Date();
+
+  for (const l of listings) {
+    const existing = await prisma.item.findFirst({
+      where: { vintedOrderId: l.vintedItemId, deletedAt: null },
+    });
+
+    if (existing) {
+      if (l.isClosed && existing.status !== 'SOLD') {
+        await prisma.item.update({
+          where: { id: existing.id },
+          data: {
+            status: 'SOLD',
+            salePrice: l.price ?? existing.salePrice,
+            saleSource: 'IMPORT_VINTED',
+          },
+        });
+        updatedToSold++;
+      } else {
+        skipped++;
+      }
+      continue;
+    }
+
+    await prisma.item.create({
+      data: {
+        brand: l.brand || 'Vinted',
+        model: l.title,
+        grade: mapGrade(l.condition),
+        photoUrl: l.photoUrl,
+        status: l.isClosed ? 'SOLD' : 'IN_STOCK',
+        sourcedAt: now,
+        stockAt: l.isClosed ? null : now,
+        purchasePrice: 0,
+        purchaseCurrency: 'EUR',
+        purchasePriceEur: 0,
+        listedPrice: l.price,
+        salePrice: l.isClosed ? l.price : null,
+        netProfit: null,
+        vintedOrderId: l.vintedItemId,
+        saleSource: l.isClosed ? 'IMPORT_VINTED' : null,
+        notes: `Imported from Vinted${l.condition ? ` · ${l.condition}` : ''} · set purchase price`,
+      },
+    });
+    created++;
+  }
+
+  return { total: listings.length, created, updatedToSold, skipped };
+}
