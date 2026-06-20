@@ -21,6 +21,7 @@ export interface VintedListing {
   vintedItemId: string;
   title: string;
   price: number | null; // EUR (or listing currency — used only as the sale price hint)
+  isClosed: boolean; // true once the listing is sold/delisted; it stays in the wardrobe
 }
 
 const USER_AGENT =
@@ -48,18 +49,25 @@ function parsePrice(raw: any): number | null {
 }
 
 /**
- * Fetch the current active listings in your wardrobe. Paginates until exhausted.
- * Throws on auth/network failure (never returns a partial/empty list silently).
+ * Fetch every listing in your wardrobe (active AND closed/sold). Vinted keeps sold
+ * listings in the wardrobe with `is_closed: true` rather than removing them, so the
+ * caller distinguishes "still for sale" from "sold" via the isClosed flag — a sale
+ * is a listing that was active on a previous run and is now closed (or gone).
+ *
+ * Paginates by the server-reported total_pages (Vinted often returns fewer items
+ * than per_page, so a "short page" does NOT mean the last page). Throws on
+ * auth/network failure so the caller can abort safely.
  */
 export async function fetchWardrobe(): Promise<VintedListing[]> {
   const { domain, userId, cookie } = config();
   const perPage = 100;
   const listings: VintedListing[] = [];
 
-  for (let page = 1; page <= 50; page++) {
-    const url = `https://${domain}/api/v2/users/${userId}/items`;
+  let totalPages = 1;
+  for (let page = 1; page <= totalPages && page <= 100; page++) {
+    const url = `https://${domain}/api/v2/wardrobe/${userId}/items`;
     const { data } = await axios.get(url, {
-      params: { page, per_page: perPage, order: 'newest_first' },
+      params: { page, per_page: perPage },
       headers: {
         Cookie: cookie,
         'User-Agent': USER_AGENT,
@@ -70,20 +78,23 @@ export async function fetchWardrobe(): Promise<VintedListing[]> {
       timeout: 20000,
     });
 
-    const items: any[] = Array.isArray(data?.items) ? data.items : [];
-    for (const it of items) {
+    // A valid wardrobe response always carries an `items` array and a pagination
+    // block. Its absence means we were blocked/redirected (soft failure) — throw.
+    if (!Array.isArray(data?.items) || !data?.pagination) {
+      throw new Error('Unexpected Vinted wardrobe response shape (blocked or expired cookie?).');
+    }
+    totalPages = Number(data.pagination.total_pages) || 1;
+
+    for (const it of data.items as any[]) {
       if (it?.id == null) continue;
       listings.push({
         vintedItemId: String(it.id),
         title: String(it.title ?? `${it.brand_title ?? ''} ${it.name ?? ''}`).trim() || `item ${it.id}`,
         price: parsePrice(it.price) ?? parsePrice(it.total_item_price),
+        isClosed: Boolean(it.is_closed),
       });
     }
-
-    if (items.length < perPage) break; // last page reached
   }
 
-  // An authenticated wardrobe fetch that yields zero items is treated as a failure
-  // by the caller's guard, so don't special-case it here.
   return listings;
 }
