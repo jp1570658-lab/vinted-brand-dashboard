@@ -32,47 +32,53 @@ async function demoParsedSales(): Promise<ParsedSale[]> {
 }
 
 /**
- * LIVE: detect sales by wardrobe diff. An item that was listed on a previous run
- * but has vanished from the wardrobe today is treated as sold.
+ * LIVE: detect sales by wardrobe diff. Vinted keeps sold listings in the wardrobe
+ * marked `is_closed: true`, so a sale is a listing that was ACTIVE on a previous run
+ * and is now either closed or gone. (Pure disappearance never happens here, hence we
+ * key off the is_closed flag.)
  *
- * Safety guard: if the wardrobe fetch returns zero listings we assume an auth /
- * network failure and abort — a bad fetch must never mark the whole wardrobe sold.
+ * Safety guard: a successful fetch always returns at least the seller's closed
+ * listings. If it returns zero rows at all we assume an auth/network failure and
+ * abort — a bad fetch must never mark active listings sold. An empty *active* set on
+ * a non-empty wardrobe is legitimate (seller has nothing currently for sale).
  */
 async function liveParsedSales(): Promise<{ listingsSeen: number; sales: ParsedSale[] }> {
   const { fetchWardrobe } = await import('./vintedLive');
-  const current = await fetchWardrobe();
+  const all = await fetchWardrobe();
 
-  if (current.length === 0) {
+  if (all.length === 0) {
     throw new Error(
-      'Vinted wardrobe fetch returned 0 listings — aborting (likely an expired cookie or blocked request). No items were marked sold.',
+      'Vinted wardrobe fetch returned 0 rows — aborting (likely an expired cookie or blocked request). No items were marked sold.',
     );
   }
 
-  const currentIds = new Set(current.map((c) => c.vintedItemId));
+  const active = all.filter((c) => !c.isClosed);
+  const activeIds = new Set(active.map((c) => c.vintedItemId));
 
   // Listings we considered active before this run.
   const previous = await prisma.vintedListing.findMany({ where: { active: true } });
-  const disappeared = previous.filter((p) => !currentIds.has(p.vintedItemId));
+  // Previously-active listings that are no longer active (now closed or removed) = sold.
+  const sold = previous.filter((p) => !activeIds.has(p.vintedItemId));
 
-  // Refresh the snapshot: upsert everything currently listed as active.
+  // Refresh the snapshot: every row we saw gets active = !isClosed.
   const now = new Date();
-  for (const c of current) {
+  for (const c of all) {
     await prisma.vintedListing.upsert({
       where: { vintedItemId: c.vintedItemId },
       create: {
         vintedItemId: c.vintedItemId,
         title: c.title,
         price: c.price,
-        active: true,
+        active: !c.isClosed,
         lastSeenAt: now,
       },
-      update: { title: c.title, price: c.price, active: true, lastSeenAt: now },
+      update: { title: c.title, price: c.price, active: !c.isClosed, lastSeenAt: now },
     });
   }
 
-  // Anything that vanished is now sold/delisted — flag it and emit a sale.
+  // Each listing that left the active set is now sold/delisted — flag it, emit a sale.
   const sales: ParsedSale[] = [];
-  for (const d of disappeared) {
+  for (const d of sold) {
     await prisma.vintedListing.update({
       where: { vintedItemId: d.vintedItemId },
       data: { active: false, soldDetected: true },
@@ -81,11 +87,11 @@ async function liveParsedSales(): Promise<{ listingsSeen: number; sales: ParsedS
       title: d.title,
       price: d.price ?? 0,
       orderId: d.vintedItemId,
-      raw: 'wardrobe-diff: listing disappeared',
+      raw: 'wardrobe-diff: listing closed/sold',
     });
   }
 
-  return { listingsSeen: current.length, sales };
+  return { listingsSeen: active.length, sales };
 }
 
 /**
