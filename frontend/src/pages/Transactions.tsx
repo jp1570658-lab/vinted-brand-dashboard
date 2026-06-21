@@ -6,6 +6,7 @@ import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
 import { LinkItemModal } from '../components/LinkItemModal';
 import { eur, money, shortDate } from '../lib/format';
+import { suggestItems, runnerNamesOf, SUGGEST_THRESHOLD, type Suggestion } from '../lib/matchItem';
 import { useLayout } from '../hooks/useLayout';
 
 const CATEGORIES = [
@@ -82,6 +83,29 @@ export function Transactions() {
       return true;
     });
   }, [txns, search, catFilter, unlinkedOnly]);
+
+  // Top confident match per unlinked transaction (for one-tap linking).
+  const suggestions = useMemo(() => {
+    const names = runnerNamesOf(items);
+    const map = new Map<string, Suggestion>();
+    for (const t of txns) {
+      if (t.item) continue;
+      const top = suggestItems(t, items, names)[0];
+      if (top && top.score >= SUGGEST_THRESHOLD) map.set(t.id, top);
+    }
+    return map;
+  }, [txns, items]);
+
+  async function acceptSuggestion(txId: string, item: Item) {
+    setTxns((prev) =>
+      prev.map((t) =>
+        t.id === txId
+          ? { ...t, item: { id: item.id, brand: item.brand, model: item.model }, itemId: item.id }
+          : t,
+      ),
+    );
+    await api.transactions.update(txId, { itemId: item.id });
+  }
 
   async function changeCategory(id: string, category: string) {
     setEditingCat(null);
@@ -264,6 +288,26 @@ export function Transactions() {
                             ✕
                           </button>
                         </span>
+                      ) : suggestions.has(t.id) ? (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            onClick={() => acceptSuggestion(t.id, suggestions.get(t.id)!.item)}
+                            title={`Suggested · ${suggestions.get(t.id)!.reason}`}
+                            className="inline-flex max-w-[150px] items-center gap-1 rounded-lg border border-gold/50 bg-gold/15 px-2.5 py-1.5 text-xs font-medium text-gold hover:bg-gold/25"
+                          >
+                            <span>✨</span>
+                            <span className="truncate">
+                              {suggestions.get(t.id)!.item.brand} {suggestions.get(t.id)!.item.model}
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => setLinkTx(t)}
+                            title="Pick a different item"
+                            className="rounded-lg border border-edge px-2 py-1.5 text-xs text-neutral-400 hover:border-gold/50 hover:text-gold"
+                          >
+                            ⋯
+                          </button>
+                        </div>
                       ) : (
                         <button
                           onClick={() => setLinkTx(t)}

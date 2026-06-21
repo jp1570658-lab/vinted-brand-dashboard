@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Item, WiseTransaction } from '../api/types';
 import { api } from '../api/endpoints';
 import { eur, money } from '../lib/format';
+import { suggestItems, runnerNamesOf, SUGGEST_THRESHOLD } from '../lib/matchItem';
 import { ItemImage } from './ItemImage';
 import { StatusBadge } from './StatusBadge';
 
@@ -22,23 +23,48 @@ const APPLY_OPTIONS: { key: ApplyChoice; label: string; hint: string }[] = [
 
 export function LinkItemModal({ tx, items, onClose, onDone }: Props) {
   const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState<Item | null>(null);
   const [choice, setChoice] = useState<ApplyChoice>('NONE');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const amount = tx.amountEur ?? tx.amount;
 
+  // Rank by match score so the likely item floats to the top, plus a set of
+  // ids confident enough to badge as "Suggested".
+  const { suggestedIds, scoreById } = useMemo(() => {
+    const ranked = suggestItems(tx, items, runnerNamesOf(items));
+    const scoreById = new Map(ranked.map((s) => [s.item.id, s.score]));
+    const suggestedIds = new Set(
+      ranked.filter((s) => s.score >= SUGGEST_THRESHOLD).map((s) => s.item.id),
+    );
+    return { suggestedIds, scoreById };
+  }, [tx, items]);
+
+  // Pre-select the top confident suggestion (if any).
+  const topSuggestionId = useMemo(() => {
+    const top = suggestItems(tx, items, runnerNamesOf(items))[0];
+    return top && top.score >= SUGGEST_THRESHOLD ? top.item.id : null;
+  }, [tx, items]);
+
+  const [selected, setSelected] = useState<Item | null>(
+    () => items.find((i) => i.id === topSuggestionId) ?? null,
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const base = q
       ? items.filter((i) => `${i.brand} ${i.model} ${i.color ?? ''}`.toLowerCase().includes(q))
       : items;
-    // Most recently sourced first — the likely match for a fresh expense.
+    // Suggestions first; then most-recently sourced.
     return [...base]
-      .sort((a, b) => new Date(b.sourcedAt).getTime() - new Date(a.sourcedAt).getTime())
+      .sort((a, b) => {
+        const sa = scoreById.get(a.id) ?? 0;
+        const sb = scoreById.get(b.id) ?? 0;
+        if (sb !== sa) return sb - sa;
+        return new Date(b.sourcedAt).getTime() - new Date(a.sourcedAt).getTime();
+      })
       .slice(0, 60);
-  }, [items, query]);
+  }, [items, query, scoreById]);
 
   async function confirm() {
     if (!selected) return;
@@ -108,8 +134,15 @@ export function LinkItemModal({ tx, items, onClose, onDone }: Props) {
                         fallbackClassName="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-black/30 text-lg"
                       />
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium text-neutral-100">
-                          {i.brand} <span className="text-neutral-400">{i.model}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-sm font-medium text-neutral-100">
+                            {i.brand} <span className="text-neutral-400">{i.model}</span>
+                          </span>
+                          {suggestedIds.has(i.id) && (
+                            <span className="shrink-0 rounded-full border border-gold/40 bg-gold/15 px-1.5 py-0.5 text-[9px] font-semibold text-gold">
+                              ✨ Suggested
+                            </span>
+                          )}
                         </div>
                         <div className="mt-0.5 flex items-center gap-2">
                           <StatusBadge status={i.status} />
