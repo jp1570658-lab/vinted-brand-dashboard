@@ -40,6 +40,14 @@ export interface Item {
   updatedAt: string;
 }
 
+export interface TxSplit {
+  id: string;
+  itemId: string;
+  amount: number;
+  applyAs: 'PURCHASE' | 'SHIPPING';
+  item?: { id: string; brand: string; model: string } | null;
+}
+
 export interface WiseTransaction {
   id: string;
   wiseId: string;
@@ -51,6 +59,7 @@ export interface WiseTransaction {
   category?: string | null;
   itemId?: string | null;
   item?: { id: string; brand: string; model: string } | null;
+  splits?: TxSplit[];
 }
 
 export interface Stats {

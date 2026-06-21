@@ -62,6 +62,15 @@ export const api = {
         applyAs?: 'PURCHASE' | 'SHIPPING';
       },
     ) => apiSend<WiseTransaction>(`/api/transactions/${id}`, 'PATCH', data),
+    split: (
+      id: string,
+      data: {
+        applyAs?: 'PURCHASE' | 'SHIPPING';
+        allocations: { itemId: string; amount: number }[];
+      },
+    ) => apiSend<WiseTransaction>(`/api/transactions/${id}/split`, 'POST', data),
+    unsplit: (id: string) =>
+      apiSend<WiseTransaction>(`/api/transactions/${id}/split`, 'DELETE'),
   },
 
   sync: {
