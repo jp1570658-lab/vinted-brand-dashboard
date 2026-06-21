@@ -19,19 +19,19 @@ enum ItemStatus {
 }
 
 model Item {
-  id               String     @id @default(uuid())
+  id               String             @id @default(uuid())
   brand            String
   model            String
   grade            String?
   color            String?
   photoUrl         String?
-  status           ItemStatus @default(SOURCED)
-  sourcedAt        DateTime   @default(now())
+  status           ItemStatus         @default(SOURCED)
+  sourcedAt        DateTime           @default(now())
   transitAt        DateTime?
   stockAt          DateTime?
   soldAt           DateTime?
   purchasePrice    Float
-  purchaseCurrency String     @default("EUR")
+  purchaseCurrency String             @default("EUR")
   purchasePriceEur Float?
   shippingCost     Float?
   customsFees      Float?
@@ -43,11 +43,12 @@ model Item {
   vintedOrderId    String?
   saleSource       String? // "AUTO_GMAIL" | "AUTO_VINTED" | "MANUAL"
   runnerId         String?
-  runner           Runner?    @relation(fields: [runnerId], references: [id])
+  runner           Runner?            @relation(fields: [runnerId], references: [id])
   wiseTransactions WiseTransaction[]
+  txSplits         TransactionSplit[]
   deletedAt        DateTime? // soft delete
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
   @@index([status])
   @@index([sourcedAt])
@@ -65,8 +66,8 @@ model Runner {
 }
 
 model WiseTransaction {
-  id          String   @id @default(uuid())
-  wiseId      String   @unique
+  id          String             @id @default(uuid())
+  wiseId      String             @unique
   date        DateTime
   amount      Float
   currency    String
@@ -74,11 +75,29 @@ model WiseTransaction {
   description String
   category    String?
   itemId      String?
-  item        Item?    @relation(fields: [itemId], references: [id])
-  createdAt   DateTime @default(now())
+  item        Item?              @relation(fields: [itemId], references: [id])
+  splits      TransactionSplit[]
+  createdAt   DateTime           @default(now())
 
   @@index([date])
   @@index([category])
+}
+
+// Splits one expense across several items: each row allocates an EUR portion of
+// the parent transaction to one item's cost. Lets a single "Bags purchase" feed
+// real per-item cost (and net profit). Replaces the single `itemId` link when used.
+model TransactionSplit {
+  id            String          @id @default(uuid())
+  transactionId String
+  transaction   WiseTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  itemId        String
+  item          Item            @relation(fields: [itemId], references: [id])
+  amount        Float // EUR portion allocated to this item
+  applyAs       String          @default("PURCHASE") // "PURCHASE" | "SHIPPING"
+  createdAt     DateTime        @default(now())
+
+  @@index([transactionId])
+  @@index([itemId])
 }
 
 model GmailSync {
@@ -135,18 +154,18 @@ model VintedListingSnapshot {
 // from, so updating the env (after a re-login) transparently re-seeds the jar.
 model VintedAuth {
   id        String   @id @default("singleton")
-  cookie    String   // live cookie jar, updated after every token refresh
-  seed      String   // the VINTED_COOKIE env value this jar was initialized from
+  cookie    String // live cookie jar, updated after every token refresh
+  seed      String // the VINTED_COOKIE env value this jar was initialized from
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 // Persists the Google OAuth refresh token in LIVE mode (Step 6).
 model GoogleToken {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   refreshToken String
   accessToken  String?
   expiry       DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }

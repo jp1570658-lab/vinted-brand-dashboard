@@ -5,6 +5,7 @@ import { TopNav } from '../components/TopNav';
 import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
 import { LinkItemModal } from '../components/LinkItemModal';
+import { SplitItemModal } from '../components/SplitItemModal';
 import { eur, money, shortDate } from '../lib/format';
 import { suggestItems, runnerNamesOf, SUGGEST_THRESHOLD, type Suggestion } from '../lib/matchItem';
 import { useLayout } from '../hooks/useLayout';
@@ -44,6 +45,7 @@ export function Transactions() {
   const [unlinkedOnly, setUnlinkedOnly] = useState(false);
   const [editingCat, setEditingCat] = useState<string | null>(null);
   const [linkTx, setLinkTx] = useState<WiseTransaction | null>(null);
+  const [splitTx, setSplitTx] = useState<WiseTransaction | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -66,9 +68,10 @@ export function Transactions() {
     let other = 0;
     for (const t of txns) {
       const eurAmt = t.amountEur ?? t.amount;
+      const linked = Boolean(t.item) || Boolean(t.splits?.length);
       total += eurAmt;
       if (isThisMonth(t.date)) month += eurAmt;
-      if (!t.item) unlinked += 1;
+      if (!linked) unlinked += 1;
       if ((t.category || 'OTHER') === 'OTHER') other += 1;
     }
     return { total, month, unlinked, other };
@@ -77,7 +80,7 @@ export function Transactions() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return txns.filter((t) => {
-      if (unlinkedOnly && t.item) return false;
+      if (unlinkedOnly && (t.item || t.splits?.length)) return false;
       if (catFilter && (t.category || 'OTHER') !== catFilter) return false;
       if (q && !t.description.toLowerCase().includes(q)) return false;
       return true;
@@ -89,7 +92,7 @@ export function Transactions() {
     const names = runnerNamesOf(items);
     const map = new Map<string, Suggestion>();
     for (const t of txns) {
-      if (t.item) continue;
+      if (t.item || t.splits?.length) continue;
       const top = suggestItems(t, items, names)[0];
       if (top && top.score >= SUGGEST_THRESHOLD) map.set(t.id, top);
     }
@@ -116,6 +119,12 @@ export function Transactions() {
   async function unlink(id: string) {
     setTxns((prev) => prev.map((t) => (t.id === id ? { ...t, item: null, itemId: null } : t)));
     await api.transactions.update(id, { itemId: null });
+  }
+
+  async function unsplit(id: string) {
+    setTxns((prev) => prev.map((t) => (t.id === id ? { ...t, splits: [] } : t)));
+    await api.transactions.unsplit(id);
+    load();
   }
 
   const filtersActive = Boolean(search || catFilter || unlinkedOnly);
@@ -259,6 +268,19 @@ export function Transactions() {
                         )}
                       </div>
                       <div className="mt-1 truncate text-sm text-neutral-200">{t.description}</div>
+                      {t.splits && t.splits.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {t.splits.map((s) => (
+                            <span
+                              key={s.id}
+                              className="rounded border border-edge bg-black/20 px-1.5 py-0.5 text-[10px] text-neutral-400"
+                            >
+                              {s.item ? `${s.item.brand} ${s.item.model}` : 'item'} ·{' '}
+                              <span className="text-gold">{eur(s.amount)}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {/* Right: amount + link */}
@@ -271,7 +293,24 @@ export function Transactions() {
                           </div>
                         )}
                       </div>
-                      {t.item ? (
+                      {t.splits && t.splits.length > 0 ? (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            onClick={() => setSplitTx(t)}
+                            title="Edit split"
+                            className="inline-flex items-center gap-1 rounded-lg border border-gold/40 bg-gold/10 px-2.5 py-1.5 text-xs font-medium text-gold hover:bg-gold/20"
+                          >
+                            ⊟ Split · {t.splits.length}
+                          </button>
+                          <button
+                            onClick={() => unsplit(t.id)}
+                            title="Remove split"
+                            className="rounded-lg border border-edge px-2 py-1.5 text-xs text-neutral-400 hover:border-red-400/50 hover:text-red-400"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : t.item ? (
                         <span className="inline-flex items-center gap-1 rounded-lg border border-gold/40 bg-gold/10 px-2 py-1 text-xs text-gold">
                           <button
                             onClick={() => setLinkTx(t)}
@@ -307,14 +346,30 @@ export function Transactions() {
                           >
                             ⋯
                           </button>
+                          <button
+                            onClick={() => setSplitTx(t)}
+                            title="Split across items"
+                            className="rounded-lg border border-edge px-2 py-1.5 text-xs text-neutral-400 hover:border-gold/50 hover:text-gold"
+                          >
+                            ⊟
+                          </button>
                         </div>
                       ) : (
-                        <button
-                          onClick={() => setLinkTx(t)}
-                          className="shrink-0 rounded-lg border border-edge px-3 py-1.5 text-xs text-neutral-300 hover:border-gold/50 hover:text-gold"
-                        >
-                          + Link item
-                        </button>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            onClick={() => setLinkTx(t)}
+                            className="rounded-lg border border-edge px-3 py-1.5 text-xs text-neutral-300 hover:border-gold/50 hover:text-gold"
+                          >
+                            + Link item
+                          </button>
+                          <button
+                            onClick={() => setSplitTx(t)}
+                            title="Split across items"
+                            className="rounded-lg border border-edge px-2.5 py-1.5 text-xs text-neutral-400 hover:border-gold/50 hover:text-gold"
+                          >
+                            ⊟ Split
+                          </button>
+                        </div>
                       )}
                     </div>
                   </li>
@@ -332,6 +387,18 @@ export function Transactions() {
           onClose={() => setLinkTx(null)}
           onDone={() => {
             setLinkTx(null);
+            load();
+          }}
+        />
+      )}
+
+      {splitTx && (
+        <SplitItemModal
+          tx={splitTx}
+          items={items}
+          onClose={() => setSplitTx(null)}
+          onDone={() => {
+            setSplitTx(null);
             load();
           }}
         />
