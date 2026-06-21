@@ -4,8 +4,13 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { asyncHandler, HttpError } from '../middleware/errorHandler';
 import { handleValidation } from '../middleware/validate';
+import { calcNetProfit } from '../lib/profit';
 
 export const transactionsRouter = Router();
+
+// How a linked expense should feed into the item's real cost (optional).
+const APPLY_MODES = ['PURCHASE', 'SHIPPING'] as const;
+type ApplyMode = (typeof APPLY_MODES)[number];
 
 // GET /api/transactions ?category=&itemId=&page=&limit=
 transactionsRouter.get(
@@ -61,6 +66,44 @@ transactionsRouter.patch(
       data,
       include: { item: { select: { id: true, brand: true, model: true } } },
     });
+
+    // Optionally fold this expense into the linked item's cost so net profit
+    // reflects real money spent. Opt-in: only runs when applyAs is provided and
+    // the transaction is (now) linked to an item.
+    const applyAs = req.body.applyAs as ApplyMode | undefined;
+    if (applyAs !== undefined && applyAs !== null) {
+      if (!APPLY_MODES.includes(applyAs)) {
+        throw new HttpError(400, `applyAs must be one of: ${APPLY_MODES.join(', ')}`);
+      }
+      if (!tx.itemId) {
+        throw new HttpError(400, 'Cannot apply cost: transaction is not linked to an item');
+      }
+      const item = await prisma.item.findFirst({ where: { id: tx.itemId, deletedAt: null } });
+      if (!item) throw new HttpError(400, 'Linked item not found');
+
+      // Wise amounts are already normalized to EUR on import; fall back to raw.
+      const amountEur = tx.amountEur ?? tx.amount;
+      const itemData: Prisma.ItemUpdateInput = {};
+      if (applyAs === 'PURCHASE') {
+        itemData.purchasePrice = amountEur;
+        itemData.purchaseCurrency = 'EUR';
+        itemData.purchasePriceEur = amountEur;
+      } else {
+        itemData.shippingCost = amountEur;
+      }
+
+      // Recompute profit if the item is already sold.
+      if (item.status === 'SOLD') {
+        itemData.netProfit = calcNetProfit({
+          salePrice: item.salePrice,
+          purchasePriceEur: applyAs === 'PURCHASE' ? amountEur : item.purchasePriceEur,
+          shippingCost: applyAs === 'SHIPPING' ? amountEur : item.shippingCost,
+          customsFees: item.customsFees,
+        });
+      }
+      await prisma.item.update({ where: { id: item.id }, data: itemData });
+    }
+
     res.json(tx);
   }),
 );

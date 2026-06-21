@@ -54,8 +54,14 @@ export const api = {
       const qs = q.toString();
       return apiGet<Paged<WiseTransaction>>(`/api/transactions${qs ? `?${qs}` : ''}`);
     },
-    update: (id: string, data: { category?: string | null; itemId?: string | null }) =>
-      apiSend<WiseTransaction>(`/api/transactions/${id}`, 'PATCH', data),
+    update: (
+      id: string,
+      data: {
+        category?: string | null;
+        itemId?: string | null;
+        applyAs?: 'PURCHASE' | 'SHIPPING';
+      },
+    ) => apiSend<WiseTransaction>(`/api/transactions/${id}`, 'PATCH', data),
   },
 
   sync: {
