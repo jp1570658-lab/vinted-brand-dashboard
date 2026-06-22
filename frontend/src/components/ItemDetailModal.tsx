@@ -88,6 +88,8 @@ export function ItemDetailModal({ item, onClose, onChanged }: Props) {
             <Row label="≈ EUR" value={eur(item.purchasePriceEur)} />
             <Row label="Runner" value={item.runner?.name ?? '—'} />
             <Row label="Sourced" value={shortDate(item.sourcedAt)} />
+            {item.stockAt && <Row label="Posted / listed" value={shortDate(item.stockAt)} />}
+            {item.soldAt && <Row label="Sold on" value={shortDate(item.soldAt)} />}
             {item.listedPrice != null && <Row label="Listed" value={eur(item.listedPrice)} />}
             {item.vintedLikes != null && <Row label="Vinted likes" value={`❤ ${item.vintedLikes}`} />}
             {item.salePrice != null && <Row label="Sold for" value={eur(item.salePrice)} />}
