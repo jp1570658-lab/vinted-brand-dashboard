@@ -30,6 +30,17 @@ export function daysSince(iso: string | null | undefined): number {
   return Math.floor((Date.now() - then) / (1000 * 60 * 60 * 24));
 }
 
+// Whole days between two timestamps (later − earlier). null if either is missing.
+export function daysBetween(
+  from: string | null | undefined,
+  to: string | null | undefined,
+): number | null {
+  if (!from || !to) return null;
+  const ms = new Date(to).getTime() - new Date(from).getTime();
+  if (!Number.isFinite(ms)) return null;
+  return Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24)));
+}
+
 export function shortDate(iso: string | null | undefined): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('en-GB', {
