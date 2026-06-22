@@ -39,14 +39,24 @@ function profitOf(it: Item): number {
   return 0;
 }
 
-/** Days from going in-stock (fallback sourced) to sold. */
-function daysToSell(it: Item): number | null {
-  return daysBetween(it.stockAt ?? it.sourcedAt, it.soldAt);
-}
 
 /** No purchase/shipping/customs cost recorded → profit & margin are overstated. */
 function costMissing(it: Item): boolean {
   return totalCost(it) <= 0;
+}
+
+/** Best available "listed / posted" date — when the item went in-stock. */
+function listedDate(it: Item): string | null {
+  return it.stockAt ?? it.sourcedAt ?? it.createdAt ?? null;
+}
+
+/** Days the item sat listed before selling. */
+function daysListed(it: Item): number | null {
+  return daysBetween(listedDate(it), it.soldAt);
+}
+
+function isAutoSale(it: Item): boolean {
+  return it.saleSource === 'AUTO_GMAIL' || it.saleSource === 'AUTO_VINTED';
 }
 
 type Health = 'all' | 'profit' | 'loss' | 'nocost';
@@ -71,6 +81,8 @@ export function Sold() {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortKey>('soldAt');
   const [health, setHealth] = useState<Health>('all');
+  const [brand, setBrand] = useState('');
+  const [source, setSource] = useState<'all' | 'auto' | 'manual'>('all');
   const [showUndated, setShowUndated] = useState(false);
   const [activePreset, setActivePreset] = useState<Preset | null>('start');
 
@@ -82,17 +94,28 @@ export function Sold() {
       .finally(() => setLoading(false));
   }, [refreshKey]);
 
-  const matchesSearch = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return (it: Item) =>
-      !q ||
-      `${it.brand} ${it.model} ${it.color ?? ''} ${it.runner?.name ?? ''}`
-        .toLowerCase()
-        .includes(q);
-  }, [search]);
+  // All brands that have a sale — powers the brand dropdown.
+  const brands = useMemo(
+    () => Array.from(new Set(items.map((i) => i.brand))).sort((a, b) => a.localeCompare(b)),
+    [items],
+  );
 
-  // Sales with a real sale date, inside the chosen window — these drive the analysis.
-  const dated = useMemo(() => {
+  // Every non-date facet (search + brand + source) in one predicate, so all
+  // filters apply consistently to KPIs, counts, the list AND the imported section.
+  const matchesFacets = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (it: Item) => {
+      if (q && !`${it.brand} ${it.model} ${it.color ?? ''} ${it.runner?.name ?? ''}`.toLowerCase().includes(q))
+        return false;
+      if (brand && it.brand !== brand) return false;
+      if (source === 'auto' && !isAutoSale(it)) return false;
+      if (source === 'manual' && isAutoSale(it)) return false;
+      return true;
+    };
+  }, [search, brand, source]);
+
+  // Dated, in-window sales that pass every facet — the analysis set.
+  const scoped = useMemo(() => {
     const fromMs = from ? new Date(from).getTime() : -Infinity;
     const toMs = to ? new Date(`${to}T23:59:59`).getTime() : Infinity;
     return items
@@ -101,29 +124,31 @@ export function Sold() {
         const t = new Date(it.soldAt as string).getTime();
         return t >= fromMs && t <= toMs;
       })
-      .filter(matchesSearch);
-  }, [items, from, to, matchesSearch]);
+      .filter(matchesFacets);
+  }, [items, from, to, matchesFacets]);
 
   // Imported sales with no real sale date — kept out of the period maths, shown separately.
   const undated = useMemo(
-    () => items.filter((it) => it.soldAt == null).filter(matchesSearch),
-    [items, matchesSearch],
+    () => items.filter((it) => it.soldAt == null).filter(matchesFacets),
+    [items, matchesFacets],
   );
 
-  // Profit-health breakdown over the period (drives the insights banner + filter chips).
+  // Profit-health breakdown (drives the insights banner + filter chips) — pre-health so
+  // every bucket's count stays visible to pick from.
   const health$ = useMemo(() => {
-    const loss = dated.filter((it) => profitOf(it) < 0);
-    const nocost = dated.filter(costMissing);
-    const profit = dated.filter((it) => profitOf(it) >= 0 && !costMissing(it));
+    const loss = scoped.filter((it) => profitOf(it) < 0);
+    const nocost = scoped.filter(costMissing);
+    const profit = scoped.filter((it) => profitOf(it) >= 0 && !costMissing(it));
     const lossTotal = loss.reduce((s, it) => s + profitOf(it), 0);
     return {
-      counts: { all: dated.length, profit: profit.length, loss: loss.length, nocost: nocost.length },
+      counts: { all: scoped.length, profit: profit.length, loss: loss.length, nocost: nocost.length },
       lossTotal,
     };
-  }, [dated]);
+  }, [scoped]);
 
+  // Visible list = scoped + active health filter, sorted.
   const sorted = useMemo(() => {
-    const arr = dated.filter((it) => {
+    const arr = scoped.filter((it) => {
       switch (health) {
         case 'profit':
           return profitOf(it) >= 0 && !costMissing(it);
@@ -145,24 +170,24 @@ export function Sold() {
         case 'salePrice':
           return (b.salePrice ?? 0) - (a.salePrice ?? 0);
         case 'speed':
-          return (daysToSell(a) ?? Infinity) - (daysToSell(b) ?? Infinity);
+          return (daysListed(a) ?? Infinity) - (daysListed(b) ?? Infinity);
         case 'soldAt':
         default:
           return new Date(b.soldAt as string).getTime() - new Date(a.soldAt as string).getTime();
       }
     });
     return arr;
-  }, [dated, sort, health]);
+  }, [scoped, sort, health]);
 
-  // Period KPIs (computed from the dated, in-window sales).
+  // KPIs reflect exactly what's visible, so the headline always matches the filters.
   const k = useMemo(() => {
-    const units = dated.length;
-    const revenue = dated.reduce((s, it) => s + (it.salePrice ?? 0), 0);
-    const cost = dated.reduce((s, it) => s + totalCost(it), 0);
-    const profit = dated.reduce((s, it) => s + profitOf(it), 0);
-    const speeds = dated.map(daysToSell).filter((d): d is number => d != null);
+    const units = sorted.length;
+    const revenue = sorted.reduce((s, it) => s + (it.salePrice ?? 0), 0);
+    const cost = sorted.reduce((s, it) => s + totalCost(it), 0);
+    const profit = sorted.reduce((s, it) => s + profitOf(it), 0);
+    const speeds = sorted.map(daysListed).filter((d): d is number => d != null);
     const avgSpeed = speeds.length ? speeds.reduce((s, d) => s + d, 0) / speeds.length : null;
-    const best = dated.reduce<Item | null>(
+    const best = sorted.reduce<Item | null>(
       (acc, it) => (acc == null || profitOf(it) > profitOf(acc) ? it : acc),
       null,
     );
@@ -175,7 +200,10 @@ export function Sold() {
       avgSpeed,
       best,
     };
-  }, [dated]);
+  }, [sorted]);
+
+  const filtersActive =
+    activePreset !== 'start' || !!search || !!brand || source !== 'all' || health !== 'all';
 
   function preset(p: Preset) {
     setActivePreset(p);
@@ -191,6 +219,14 @@ export function Sold() {
       setFrom(ymd(d));
       setTo('');
     }
+  }
+
+  function resetFilters() {
+    setSearch('');
+    setBrand('');
+    setSource('all');
+    setHealth('all');
+    preset('start');
   }
 
   const periodLabel = from
@@ -261,6 +297,27 @@ export function Sold() {
               )}
             </div>
             <select
+              value={brand}
+              onChange={(e) => setBrand(e.target.value)}
+              className="input w-auto"
+            >
+              <option value="">All brands</option>
+              {brands.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
+            <select
+              value={source}
+              onChange={(e) => setSource(e.target.value as 'all' | 'auto' | 'manual')}
+              className="input w-auto"
+            >
+              <option value="all">Any source</option>
+              <option value="auto">Auto only</option>
+              <option value="manual">Manual only</option>
+            </select>
+            <select
               value={sort}
               onChange={(e) => setSort(e.target.value as SortKey)}
               className="input w-auto"
@@ -271,6 +328,14 @@ export function Sold() {
                 </option>
               ))}
             </select>
+            {filtersActive && (
+              <button
+                onClick={resetFilters}
+                className="rounded-lg border border-edge bg-black/20 px-3 py-2 text-sm text-neutral-400 transition hover:border-gold/60 hover:text-gold"
+              >
+                ↺ Reset
+              </button>
+            )}
           </div>
         </div>
 
@@ -301,7 +366,7 @@ export function Sold() {
             </div>
 
             {/* Profit-health insights — only when there's something worth flagging */}
-            {dated.length > 0 && (health$.counts.loss > 0 || health$.counts.nocost > 0) && (
+            {scoped.length > 0 && (health$.counts.loss > 0 || health$.counts.nocost > 0) && (
               <div className="space-y-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
                 {health$.counts.nocost > 0 && (
                   <button
@@ -325,7 +390,7 @@ export function Sold() {
             )}
 
             {/* Profit-health filter chips */}
-            {dated.length > 0 && (
+            {scoped.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {(['all', 'profit', 'loss', 'nocost'] as Health[]).map((h) => (
                   <PresetChip
@@ -351,7 +416,7 @@ export function Sold() {
 
             {/* Dated sales list */}
             {sorted.length === 0 ? (
-              health !== 'all' && dated.length > 0 ? (
+              health !== 'all' && scoped.length > 0 ? (
                 <EmptyState
                   title={`No "${HEALTH_LABEL[health]}" sales here`}
                   message="No sales match this filter in the chosen period. Switch back to All."
@@ -482,14 +547,15 @@ function SoldRow({
 }) {
   const cost = totalCost(it);
   const profit = profitOf(it);
-  const speed = daysToSell(it);
+  const speed = daysListed(it);
   const roi = cost > 0 ? (profit / cost) * 100 : null;
   // How the final sale compares with the price it was listed at.
   const vsListed =
     it.listedPrice != null && it.salePrice != null && it.listedPrice > 0
       ? ((it.salePrice - it.listedPrice) / it.listedPrice) * 100
       : null;
-  const isAuto = it.saleSource === 'AUTO_GMAIL' || it.saleSource === 'AUTO_VINTED';
+  const isAuto = isAutoSale(it);
+  const posted = listedDate(it);
 
   const speedTone = speed == null ? undefined : speed <= 7 ? 'good' : speed > 21 ? 'bad' : undefined;
   const speedLabel =
@@ -538,11 +604,17 @@ function SoldRow({
             </div>
           </div>
 
-          {/* Meta line */}
-          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-neutral-500">
-            <span>{undated ? 'Imported' : `Sold ${shortDate(it.soldAt)}`}</span>
-            {it.runner?.name && <span>🏃 {it.runner.name}</span>}
-            {it.vintedLikes != null && <span>❤ {it.vintedLikes}</span>}
+          {/* Posted → Sold timeline */}
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-neutral-500">
+            <span className="inline-flex items-center gap-1 rounded-md bg-black/30 px-1.5 py-0.5">
+              🗓 Posted <span className="text-neutral-300">{shortDate(posted)}</span>
+            </span>
+            <span aria-hidden className="text-neutral-600">→</span>
+            <span className="inline-flex items-center gap-1 rounded-md bg-black/30 px-1.5 py-0.5">
+              💰 Sold <span className="text-neutral-300">{undated ? '—' : shortDate(it.soldAt)}</span>
+            </span>
+            {it.runner?.name && <span>· 🏃 {it.runner.name}</span>}
+            {it.vintedLikes != null && <span>· ❤ {it.vintedLikes}</span>}
           </div>
 
           {/* Metric grid */}
