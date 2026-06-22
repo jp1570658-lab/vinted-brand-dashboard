@@ -1,16 +1,63 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Item } from '../api/types';
 import { api } from '../api/endpoints';
 import { TopNav } from '../components/TopNav';
 import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
-import { eur, money, pct, shortDate } from '../lib/format';
+import { ItemImage } from '../components/ItemImage';
+import { ItemDetailModal } from '../components/ItemDetailModal';
+import { eur, money, pct, shortDate, daysBetween } from '../lib/format';
 import { useLayout } from '../hooks/useLayout';
 
+// Sales analysis is anchored to the start of June 2026.
+// (Older imported listings carry no real sale date — see "undated" section.)
+const SOLD_DATA_START = '2026-06-01';
+
+type SortKey = 'soldAt' | 'profit' | 'margin' | 'salePrice' | 'speed';
+
+const SORTS: { key: SortKey; label: string }[] = [
+  { key: 'soldAt', label: 'Newest sold' },
+  { key: 'profit', label: 'Most profit' },
+  { key: 'margin', label: 'Best margin' },
+  { key: 'salePrice', label: 'Highest sale' },
+  { key: 'speed', label: 'Fastest sold' },
+];
+
+function ymd(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** Total landed cost of an item in EUR (purchase + shipping + customs). */
+function totalCost(it: Item): number {
+  return (it.purchasePriceEur ?? 0) + (it.shippingCost ?? 0) + (it.customsFees ?? 0);
+}
+
+/** Realised profit — prefer the stored netProfit, else derive from sale − cost. */
+function profitOf(it: Item): number {
+  if (it.netProfit != null) return it.netProfit;
+  if (it.salePrice != null) return it.salePrice - totalCost(it);
+  return 0;
+}
+
+/** Days from going in-stock (fallback sourced) to sold. */
+function daysToSell(it: Item): number | null {
+  return daysBetween(it.stockAt ?? it.sourcedAt, it.soldAt);
+}
+
 export function Sold() {
-  const { refreshKey, onMenu } = useLayout();
+  const { refreshKey, bumpRefresh, onMenu } = useLayout();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Item | null>(null);
+
+  // Filters
+  type Preset = 'start' | 7 | 30 | 'all';
+  const [from, setFrom] = useState(SOLD_DATA_START);
+  const [to, setTo] = useState('');
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<SortKey>('soldAt');
+  const [showUndated, setShowUndated] = useState(false);
+  const [activePreset, setActivePreset] = useState<Preset | null>('start');
 
   useEffect(() => {
     setLoading(true);
@@ -20,73 +67,426 @@ export function Sold() {
       .finally(() => setLoading(false));
   }, [refreshKey]);
 
+  const matchesSearch = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (it: Item) =>
+      !q ||
+      `${it.brand} ${it.model} ${it.color ?? ''} ${it.runner?.name ?? ''}`
+        .toLowerCase()
+        .includes(q);
+  }, [search]);
+
+  // Sales with a real sale date, inside the chosen window — these drive the analysis.
+  const dated = useMemo(() => {
+    const fromMs = from ? new Date(from).getTime() : -Infinity;
+    const toMs = to ? new Date(`${to}T23:59:59`).getTime() : Infinity;
+    return items
+      .filter((it) => it.soldAt != null)
+      .filter((it) => {
+        const t = new Date(it.soldAt as string).getTime();
+        return t >= fromMs && t <= toMs;
+      })
+      .filter(matchesSearch);
+  }, [items, from, to, matchesSearch]);
+
+  // Imported sales with no real sale date — kept out of the period maths, shown separately.
+  const undated = useMemo(
+    () => items.filter((it) => it.soldAt == null).filter(matchesSearch),
+    [items, matchesSearch],
+  );
+
+  const sorted = useMemo(() => {
+    const arr = [...dated];
+    arr.sort((a, b) => {
+      switch (sort) {
+        case 'profit':
+          return profitOf(b) - profitOf(a);
+        case 'margin':
+          return (b.marginPct ?? -Infinity) - (a.marginPct ?? -Infinity);
+        case 'salePrice':
+          return (b.salePrice ?? 0) - (a.salePrice ?? 0);
+        case 'speed':
+          return (daysToSell(a) ?? Infinity) - (daysToSell(b) ?? Infinity);
+        case 'soldAt':
+        default:
+          return new Date(b.soldAt as string).getTime() - new Date(a.soldAt as string).getTime();
+      }
+    });
+    return arr;
+  }, [dated, sort]);
+
+  // Period KPIs (computed from the dated, in-window sales).
+  const k = useMemo(() => {
+    const units = dated.length;
+    const revenue = dated.reduce((s, it) => s + (it.salePrice ?? 0), 0);
+    const cost = dated.reduce((s, it) => s + totalCost(it), 0);
+    const profit = dated.reduce((s, it) => s + profitOf(it), 0);
+    const speeds = dated.map(daysToSell).filter((d): d is number => d != null);
+    const avgSpeed = speeds.length ? speeds.reduce((s, d) => s + d, 0) / speeds.length : null;
+    const best = dated.reduce<Item | null>(
+      (acc, it) => (acc == null || profitOf(it) > profitOf(acc) ? it : acc),
+      null,
+    );
+    return {
+      units,
+      revenue,
+      cost,
+      profit,
+      margin: revenue > 0 ? (profit / revenue) * 100 : null,
+      avgSpeed,
+      best,
+    };
+  }, [dated]);
+
+  function preset(p: Preset) {
+    setActivePreset(p);
+    if (p === 'all') {
+      setFrom('');
+      setTo('');
+    } else if (p === 'start') {
+      setFrom(SOLD_DATA_START);
+      setTo('');
+    } else {
+      const d = new Date();
+      d.setDate(d.getDate() - p);
+      setFrom(ymd(d));
+      setTo('');
+    }
+  }
+
+  const periodLabel = from
+    ? `${shortDate(from)} → ${to ? shortDate(to) : 'today'}`
+    : 'All time';
+
   return (
     <>
       <TopNav title="Sold" onMenu={onMenu} />
-      <div className="p-4">
+      <div className="space-y-4 p-4">
+        {/* Period controls */}
+        <div className="sticky top-0 z-10 rounded-xl border border-edge bg-card/95 p-3 backdrop-blur">
+          {/* Presets are the primary control; date pickers are the escape hatch */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <PresetChip label="Since 1 Jun" active={activePreset === 'start'} onClick={() => preset('start')} />
+            <PresetChip label="Last 7 days" active={activePreset === 7} onClick={() => preset(7)} />
+            <PresetChip label="Last 30 days" active={activePreset === 30} onClick={() => preset(30)} />
+            <PresetChip label="All time" active={activePreset === 'all'} onClick={() => preset('all')} />
+            <details className="relative ml-auto">
+              <summary className="cursor-pointer list-none rounded-full border border-edge bg-black/20 px-3 py-1.5 text-xs text-neutral-300 transition hover:border-gold/60 hover:text-gold">
+                {activePreset == null ? `📅 ${periodLabel}` : '📅 Custom'}
+              </summary>
+              <div className="absolute right-0 z-20 mt-2 flex gap-3 rounded-xl border border-edge bg-card p-3 shadow-xl">
+                <label className="flex flex-col text-xs text-neutral-500">
+                  From
+                  <input
+                    type="date"
+                    value={from}
+                    onChange={(e) => {
+                      setFrom(e.target.value);
+                      setActivePreset(null);
+                    }}
+                    className="input mt-1 w-auto"
+                  />
+                </label>
+                <label className="flex flex-col text-xs text-neutral-500">
+                  To
+                  <input
+                    type="date"
+                    value={to}
+                    onChange={(e) => {
+                      setTo(e.target.value);
+                      setActivePreset(null);
+                    }}
+                    className="input mt-1 w-auto"
+                  />
+                </label>
+              </div>
+            </details>
+          </div>
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[180px]">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600">🔍</span>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search brand, model, colour, runner…"
+                className="input pl-9"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-200"
+                  aria-label="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              className="input w-auto"
+            >
+              {SORTS.map((s) => (
+                <option key={s.key} value={s.key}>
+                  Sort: {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {loading ? (
           <div className="space-y-2">
             {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-12 w-full" />
+              <Skeleton key={i} className="h-24 w-full" />
             ))}
           </div>
-        ) : items.length === 0 ? (
-          <EmptyState title="No sales yet" message="Sold bags and their profit will appear here." icon="💰" />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-edge">
-            <table className="w-full min-w-[640px] text-sm">
-              <thead>
-                <tr className="border-b border-edge text-left text-xs uppercase text-neutral-500">
-                  <th className="p-3">Item</th>
-                  <th className="p-3">Sale</th>
-                  <th className="p-3">Cost (EUR)</th>
-                  <th className="p-3">Net profit</th>
-                  <th className="p-3">Margin</th>
-                  <th className="p-3">Sold</th>
-                  <th className="p-3">Source</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((it) => (
-                  <tr key={it.id} className="border-b border-edge/50 last:border-0">
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        {it.photoUrl ? (
-                          <img src={it.photoUrl} alt="" loading="lazy" className="h-9 w-9 rounded object-cover" />
-                        ) : (
-                          <div className="flex h-9 w-9 items-center justify-center rounded bg-black/30">👜</div>
-                        )}
-                        <div>
-                          <div className="font-medium text-neutral-100">{it.brand}</div>
-                          <div className="text-xs text-neutral-500">{it.model}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-3 text-neutral-200">{eur(it.salePrice)}</td>
-                    <td className="p-3 text-neutral-400">{money(it.purchasePrice, it.purchaseCurrency)}</td>
-                    <td className={`p-3 font-semibold ${(it.netProfit ?? 0) >= 0 ? 'text-status-stock' : 'text-red-400'}`}>
-                      {eur(it.netProfit)}
-                    </td>
-                    <td className="p-3 text-neutral-400">{pct(it.marginPct)}</td>
-                    <td className="p-3 text-neutral-400">{shortDate(it.soldAt)}</td>
-                    <td className="p-3">
-                      <span
-                        className={`rounded-full border px-2 py-0.5 text-[10px] ${
-                          it.saleSource === 'AUTO_GMAIL'
-                            ? 'border-status-stock/40 bg-status-stock/15 text-status-stock'
-                            : 'border-edge bg-black/20 text-neutral-400'
-                        }`}
-                      >
-                        {it.saleSource === 'AUTO_GMAIL' ? 'Auto' : 'Manual'}
-                      </span>
-                    </td>
-                  </tr>
+          <>
+            {/* KPI summary for the period */}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              <Kpi label="Units sold" value={String(k.units)} sub={periodLabel} />
+              <Kpi label="Revenue" value={eur(k.revenue)} />
+              <Kpi label="Cost" value={eur(k.cost)} />
+              <Kpi
+                label="Net profit"
+                value={eur(k.profit)}
+                tone={k.profit >= 0 ? 'good' : 'bad'}
+              />
+              <Kpi label="Margin" value={pct(k.margin)} tone={k.margin == null ? undefined : k.margin >= 0 ? 'good' : 'bad'} />
+              <Kpi
+                label="Avg days to sell"
+                value={k.avgSpeed == null ? '—' : `${k.avgSpeed.toFixed(0)}d`}
+                sub={k.best ? `Top: ${k.best.brand} ${eur(profitOf(k.best))}` : undefined}
+              />
+            </div>
+
+            {/* Results header */}
+            {sorted.length > 0 && (
+              <div className="flex items-center justify-between px-1 text-xs text-neutral-500">
+                <span>
+                  <span className="text-neutral-300">{sorted.length}</span>{' '}
+                  {sorted.length === 1 ? 'sale' : 'sales'} · {periodLabel}
+                </span>
+                <span>{SORTS.find((s) => s.key === sort)?.label}</span>
+              </div>
+            )}
+
+            {/* Dated sales list */}
+            {sorted.length === 0 ? (
+              <EmptyState
+                title="No sales in this period"
+                message="Try a wider date range, or check the imported sales below."
+                icon="💰"
+              />
+            ) : (
+              <div className="space-y-2">
+                {sorted.map((it) => (
+                  <SoldRow key={it.id} item={it} onOpen={() => setSelected(it)} />
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            )}
+
+            {/* Undated / imported sales */}
+            {undated.length > 0 && (
+              <div className="rounded-xl border border-edge bg-card">
+                <button
+                  onClick={() => setShowUndated((v) => !v)}
+                  className="flex w-full items-center justify-between p-3 text-left text-sm text-neutral-300"
+                >
+                  <span>
+                    {showUndated ? '▾' : '▸'} Imported sales without a date{' '}
+                    <span className="text-neutral-500">({undated.length})</span>
+                  </span>
+                  <span className="text-xs text-neutral-500">excluded from the totals above</span>
+                </button>
+                {showUndated && (
+                  <div className="space-y-2 p-3 pt-0">
+                    {undated.map((it) => (
+                      <SoldRow key={it.id} item={it} onOpen={() => setSelected(it)} undated />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
+
+      <ItemDetailModal
+        item={selected}
+        onClose={() => setSelected(null)}
+        onChanged={bumpRefresh}
+      />
     </>
+  );
+}
+
+function PresetChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-full border px-3 py-1.5 text-xs transition ${
+        active
+          ? 'border-gold/60 bg-gold/15 font-medium text-gold'
+          : 'border-edge bg-black/20 text-neutral-300 hover:border-gold/60 hover:text-gold'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function Kpi({
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  tone?: 'good' | 'bad';
+}) {
+  const valueColor =
+    tone === 'good' ? 'text-status-stock' : tone === 'bad' ? 'text-red-400' : 'text-neutral-100';
+  return (
+    <div className="rounded-xl border border-edge bg-card p-3">
+      <div className="text-[11px] uppercase tracking-wide text-neutral-500">{label}</div>
+      <div className={`mt-1 text-lg font-semibold ${valueColor}`}>{value}</div>
+      {sub && <div className="mt-0.5 truncate text-[11px] text-neutral-500">{sub}</div>}
+    </div>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: React.ReactNode;
+  tone?: 'good' | 'bad';
+}) {
+  const color =
+    tone === 'good' ? 'text-status-stock' : tone === 'bad' ? 'text-red-400' : 'text-neutral-200';
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wide text-neutral-500">{label}</div>
+      <div className={`text-sm font-medium ${color}`}>{value}</div>
+    </div>
+  );
+}
+
+function SoldRow({
+  item: it,
+  onOpen,
+  undated,
+}: {
+  item: Item;
+  onOpen: () => void;
+  undated?: boolean;
+}) {
+  const cost = totalCost(it);
+  const profit = profitOf(it);
+  const speed = daysToSell(it);
+  const roi = cost > 0 ? (profit / cost) * 100 : null;
+  // How the final sale compares with the price it was listed at.
+  const vsListed =
+    it.listedPrice != null && it.salePrice != null && it.listedPrice > 0
+      ? ((it.salePrice - it.listedPrice) / it.listedPrice) * 100
+      : null;
+  const isAuto = it.saleSource === 'AUTO_GMAIL' || it.saleSource === 'AUTO_VINTED';
+
+  const speedTone = speed == null ? undefined : speed <= 7 ? 'good' : speed > 21 ? 'bad' : undefined;
+  const speedLabel =
+    speed == null ? '—' : `${speed}d${speed <= 7 ? ' ⚡' : speed > 21 ? ' 🐌' : ''}`;
+
+  return (
+    <button
+      onClick={onOpen}
+      className="w-full rounded-xl border border-edge bg-card p-3 text-left transition hover:border-gold/40"
+    >
+      <div className="flex gap-3">
+        <ItemImage
+          src={it.photoUrl}
+          alt={`${it.brand} ${it.model}`}
+          className="h-16 w-16 flex-shrink-0 rounded-lg object-cover"
+          fallbackClassName="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-lg bg-black/30 text-2xl"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="truncate font-medium text-neutral-100">{it.brand}</div>
+              <div className="truncate text-xs text-neutral-500">
+                {it.model}
+                {it.color ? ` · ${it.color}` : ''}
+                {it.grade ? ` · Grade ${it.grade}` : ''}
+              </div>
+            </div>
+            <span
+              className={`flex-shrink-0 rounded-full border px-2 py-0.5 text-[10px] ${
+                isAuto
+                  ? 'border-status-stock/40 bg-status-stock/15 text-status-stock'
+                  : 'border-edge bg-black/20 text-neutral-400'
+              }`}
+            >
+              {isAuto ? 'Auto' : 'Manual'}
+            </span>
+          </div>
+
+          {/* Meta line */}
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-neutral-500">
+            <span>{undated ? 'Imported' : `Sold ${shortDate(it.soldAt)}`}</span>
+            {it.runner?.name && <span>🏃 {it.runner.name}</span>}
+            {it.vintedLikes != null && <span>❤ {it.vintedLikes}</span>}
+          </div>
+
+          {/* Metric grid */}
+          <div className="mt-3 grid grid-cols-3 gap-x-3 gap-y-2 sm:grid-cols-6">
+            <Metric label="Sale" value={eur(it.salePrice)} />
+            <Metric label="Cost" value={cost > 0 ? eur(cost) : money(it.purchasePrice, it.purchaseCurrency)} />
+            <Metric
+              label="Net profit"
+              value={eur(profit)}
+              tone={profit >= 0 ? 'good' : 'bad'}
+            />
+            <Metric
+              label="Margin"
+              value={pct(it.marginPct)}
+              tone={it.marginPct == null ? undefined : it.marginPct >= 0 ? 'good' : 'bad'}
+            />
+            <Metric
+              label="ROI"
+              value={roi == null ? '—' : pct(roi)}
+              tone={roi == null ? undefined : roi >= 0 ? 'good' : 'bad'}
+            />
+            <Metric label="Days to sell" value={speedLabel} tone={speedTone} />
+          </div>
+
+          {/* Listed vs sold context */}
+          {it.listedPrice != null && (
+            <div className="mt-2 text-[11px] text-neutral-500">
+              Listed {eur(it.listedPrice)}
+              {vsListed != null && (
+                <span className={vsListed >= 0 ? ' text-status-stock' : ' text-amber-400'}>
+                  {' '}
+                  · {vsListed >= 0 ? '+' : ''}
+                  {vsListed.toFixed(0)}% vs listed
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </button>
   );
 }
