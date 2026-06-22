@@ -44,6 +44,20 @@ function daysToSell(it: Item): number | null {
   return daysBetween(it.stockAt ?? it.sourcedAt, it.soldAt);
 }
 
+/** No purchase/shipping/customs cost recorded → profit & margin are overstated. */
+function costMissing(it: Item): boolean {
+  return totalCost(it) <= 0;
+}
+
+type Health = 'all' | 'profit' | 'loss' | 'nocost';
+
+const HEALTH_LABEL: Record<Health, string> = {
+  all: 'All',
+  profit: '✅ Profit',
+  loss: '🔴 Loss',
+  nocost: '⚠ Needs cost',
+};
+
 export function Sold() {
   const { refreshKey, bumpRefresh, onMenu } = useLayout();
   const [items, setItems] = useState<Item[]>([]);
@@ -56,6 +70,7 @@ export function Sold() {
   const [to, setTo] = useState('');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortKey>('soldAt');
+  const [health, setHealth] = useState<Health>('all');
   const [showUndated, setShowUndated] = useState(false);
   const [activePreset, setActivePreset] = useState<Preset | null>('start');
 
@@ -95,8 +110,32 @@ export function Sold() {
     [items, matchesSearch],
   );
 
+  // Profit-health breakdown over the period (drives the insights banner + filter chips).
+  const health$ = useMemo(() => {
+    const loss = dated.filter((it) => profitOf(it) < 0);
+    const nocost = dated.filter(costMissing);
+    const profit = dated.filter((it) => profitOf(it) >= 0 && !costMissing(it));
+    const lossTotal = loss.reduce((s, it) => s + profitOf(it), 0);
+    return {
+      counts: { all: dated.length, profit: profit.length, loss: loss.length, nocost: nocost.length },
+      lossTotal,
+    };
+  }, [dated]);
+
   const sorted = useMemo(() => {
-    const arr = [...dated];
+    const arr = dated.filter((it) => {
+      switch (health) {
+        case 'profit':
+          return profitOf(it) >= 0 && !costMissing(it);
+        case 'loss':
+          return profitOf(it) < 0;
+        case 'nocost':
+          return costMissing(it);
+        case 'all':
+        default:
+          return true;
+      }
+    });
     arr.sort((a, b) => {
       switch (sort) {
         case 'profit':
@@ -113,7 +152,7 @@ export function Sold() {
       }
     });
     return arr;
-  }, [dated, sort]);
+  }, [dated, sort, health]);
 
   // Period KPIs (computed from the dated, in-window sales).
   const k = useMemo(() => {
@@ -261,6 +300,44 @@ export function Sold() {
               />
             </div>
 
+            {/* Profit-health insights — only when there's something worth flagging */}
+            {dated.length > 0 && (health$.counts.loss > 0 || health$.counts.nocost > 0) && (
+              <div className="space-y-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+                {health$.counts.nocost > 0 && (
+                  <button
+                    onClick={() => setHealth('nocost')}
+                    className="block text-left text-amber-300 hover:underline"
+                  >
+                    ⚠ {health$.counts.nocost} {health$.counts.nocost === 1 ? 'sale is' : 'sales are'}{' '}
+                    missing cost data — their profit &amp; margin are overstated. Tap to review.
+                  </button>
+                )}
+                {health$.counts.loss > 0 && (
+                  <button
+                    onClick={() => setHealth('loss')}
+                    className="block text-left text-red-300 hover:underline"
+                  >
+                    🔴 {health$.counts.loss} {health$.counts.loss === 1 ? 'item' : 'items'} sold below
+                    cost ({eur(health$.lossTotal)}). Tap to review.
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Profit-health filter chips */}
+            {dated.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {(['all', 'profit', 'loss', 'nocost'] as Health[]).map((h) => (
+                  <PresetChip
+                    key={h}
+                    label={`${HEALTH_LABEL[h]} ${health$.counts[h]}`}
+                    active={health === h}
+                    onClick={() => setHealth(h)}
+                  />
+                ))}
+              </div>
+            )}
+
             {/* Results header */}
             {sorted.length > 0 && (
               <div className="flex items-center justify-between px-1 text-xs text-neutral-500">
@@ -274,11 +351,19 @@ export function Sold() {
 
             {/* Dated sales list */}
             {sorted.length === 0 ? (
-              <EmptyState
-                title="No sales in this period"
-                message="Try a wider date range, or check the imported sales below."
-                icon="💰"
-              />
+              health !== 'all' && dated.length > 0 ? (
+                <EmptyState
+                  title={`No "${HEALTH_LABEL[health]}" sales here`}
+                  message="No sales match this filter in the chosen period. Switch back to All."
+                  icon="🔍"
+                />
+              ) : (
+                <EmptyState
+                  title="No sales in this period"
+                  message="Try a wider date range, or check the imported sales below."
+                  icon="💰"
+                />
+              )
             ) : (
               <div className="space-y-2">
                 {sorted.map((it) => (
@@ -432,15 +517,25 @@ function SoldRow({
                 {it.grade ? ` · Grade ${it.grade}` : ''}
               </div>
             </div>
-            <span
-              className={`flex-shrink-0 rounded-full border px-2 py-0.5 text-[10px] ${
-                isAuto
-                  ? 'border-status-stock/40 bg-status-stock/15 text-status-stock'
-                  : 'border-edge bg-black/20 text-neutral-400'
-              }`}
-            >
-              {isAuto ? 'Auto' : 'Manual'}
-            </span>
+            <div className="flex flex-shrink-0 items-center gap-1">
+              {cost <= 0 && (
+                <span
+                  className="rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-300"
+                  title="No purchase/shipping cost recorded — profit & margin are overstated"
+                >
+                  ⚠ no cost
+                </span>
+              )}
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[10px] ${
+                  isAuto
+                    ? 'border-status-stock/40 bg-status-stock/15 text-status-stock'
+                    : 'border-edge bg-black/20 text-neutral-400'
+                }`}
+              >
+                {isAuto ? 'Auto' : 'Manual'}
+              </span>
+            </div>
           </div>
 
           {/* Meta line */}
