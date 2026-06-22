@@ -6,6 +6,7 @@ import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
 import { ItemImage } from '../components/ItemImage';
 import { ItemDetailModal } from '../components/ItemDetailModal';
+import { FixCostModal } from '../components/FixCostModal';
 import { eur, money, pct, shortDate, daysBetween } from '../lib/format';
 import { useLayout } from '../hooks/useLayout';
 
@@ -73,6 +74,7 @@ export function Sold() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Item | null>(null);
+  const [fixItem, setFixItem] = useState<Item | null>(null);
 
   // Filters
   type Preset = 'start' | 7 | 30 | 'all';
@@ -432,7 +434,12 @@ export function Sold() {
             ) : (
               <div className="space-y-2">
                 {sorted.map((it) => (
-                  <SoldRow key={it.id} item={it} onOpen={() => setSelected(it)} />
+                  <SoldRow
+                    key={it.id}
+                    item={it}
+                    onOpen={() => setSelected(it)}
+                    onFixCost={() => setFixItem(it)}
+                  />
                 ))}
               </div>
             )}
@@ -453,7 +460,13 @@ export function Sold() {
                 {showUndated && (
                   <div className="space-y-2 p-3 pt-0">
                     {undated.map((it) => (
-                      <SoldRow key={it.id} item={it} onOpen={() => setSelected(it)} undated />
+                      <SoldRow
+                        key={it.id}
+                        item={it}
+                        onOpen={() => setSelected(it)}
+                        onFixCost={() => setFixItem(it)}
+                        undated
+                      />
                     ))}
                   </div>
                 )}
@@ -466,6 +479,11 @@ export function Sold() {
       <ItemDetailModal
         item={selected}
         onClose={() => setSelected(null)}
+        onChanged={bumpRefresh}
+      />
+      <FixCostModal
+        item={fixItem}
+        onClose={() => setFixItem(null)}
         onChanged={bumpRefresh}
       />
     </>
@@ -539,10 +557,12 @@ function Metric({
 function SoldRow({
   item: it,
   onOpen,
+  onFixCost,
   undated,
 }: {
   item: Item;
   onOpen: () => void;
+  onFixCost: () => void;
   undated?: boolean;
 }) {
   const cost = totalCost(it);
@@ -562,9 +582,17 @@ function SoldRow({
     speed == null ? '—' : `${speed}d${speed <= 7 ? ' ⚡' : speed > 21 ? ' 🐌' : ''}`;
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onOpen}
-      className="w-full rounded-xl border border-edge bg-card p-3 text-left transition hover:border-gold/40"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className="w-full cursor-pointer rounded-xl border border-edge bg-card p-3 text-left transition hover:border-gold/40 focus:border-gold/60 focus:outline-none"
     >
       <div className="flex gap-3">
         <ItemImage
@@ -652,8 +680,21 @@ function SoldRow({
               )}
             </div>
           )}
+
+          {/* One-tap fix for flagged rows */}
+          {cost <= 0 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onFixCost();
+              }}
+              className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-300 transition hover:bg-amber-500/20"
+            >
+              ⚙ Fix cost
+            </button>
+          )}
         </div>
       </div>
-    </button>
+    </div>
   );
 }
