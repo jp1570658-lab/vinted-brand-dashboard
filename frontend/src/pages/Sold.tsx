@@ -8,6 +8,7 @@ import { ItemImage } from '../components/ItemImage';
 import { ItemDetailModal } from '../components/ItemDetailModal';
 import { FixCostModal } from '../components/FixCostModal';
 import { eur, money, pct, shortDate, daysBetween } from '../lib/format';
+import { totalCost, costMissing, profitOf } from '../lib/cost';
 import { useLayout } from '../hooks/useLayout';
 
 // Sales analysis is anchored to the start of June 2026.
@@ -26,24 +27,6 @@ const SORTS: { key: SortKey; label: string }[] = [
 
 function ymd(d: Date): string {
   return d.toISOString().slice(0, 10);
-}
-
-/** Total landed cost of an item in EUR (purchase + shipping + customs). */
-function totalCost(it: Item): number {
-  return (it.purchasePriceEur ?? 0) + (it.shippingCost ?? 0) + (it.customsFees ?? 0);
-}
-
-/** Realised profit — prefer the stored netProfit, else derive from sale − cost. */
-function profitOf(it: Item): number {
-  if (it.netProfit != null) return it.netProfit;
-  if (it.salePrice != null) return it.salePrice - totalCost(it);
-  return 0;
-}
-
-
-/** No purchase/shipping/customs cost recorded → profit & margin are overstated. */
-function costMissing(it: Item): boolean {
-  return totalCost(it) <= 0;
 }
 
 /** Best available "listed / posted" date — when the item went in-stock. */

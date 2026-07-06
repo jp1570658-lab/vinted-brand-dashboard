@@ -7,8 +7,17 @@ import { Skeleton } from '../components/Skeleton';
 import { LinkItemModal } from '../components/LinkItemModal';
 import { SplitItemModal } from '../components/SplitItemModal';
 import { eur, money, shortDate } from '../lib/format';
+import { soldNeedsCost } from '../lib/cost';
 import { suggestItems, runnerNamesOf, SUGGEST_THRESHOLD, type Suggestion } from '../lib/matchItem';
 import { useLayout } from '../hooks/useLayout';
+
+type ApplyAs = 'PURCHASE' | 'SHIPPING';
+
+/** A payment that confidently matches a SOLD item still missing its cost. */
+interface ReconcileTarget {
+  item: Item;
+  applyAs: ApplyAs;
+}
 
 const CATEGORIES = [
   { key: 'SHIPPING', label: 'Shipping' },
@@ -43,6 +52,7 @@ export function Transactions() {
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState<string | null>(null);
   const [unlinkedOnly, setUnlinkedOnly] = useState(false);
+  const [reconcileOnly, setReconcileOnly] = useState(false);
   const [editingCat, setEditingCat] = useState<string | null>(null);
   const [linkTx, setLinkTx] = useState<WiseTransaction | null>(null);
   const [splitTx, setSplitTx] = useState<WiseTransaction | null>(null);
@@ -77,16 +87,6 @@ export function Transactions() {
     return { total, month, unlinked, other };
   }, [txns]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return txns.filter((t) => {
-      if (unlinkedOnly && (t.item || t.splits?.length)) return false;
-      if (catFilter && (t.category || 'OTHER') !== catFilter) return false;
-      if (q && !t.description.toLowerCase().includes(q)) return false;
-      return true;
-    });
-  }, [txns, search, catFilter, unlinkedOnly]);
-
   // Top confident match per unlinked transaction (for one-tap linking).
   const suggestions = useMemo(() => {
     const names = runnerNamesOf(items);
@@ -99,6 +99,32 @@ export function Transactions() {
     return map;
   }, [txns, items]);
 
+  // Unlinked payments whose confident match is a SOLD item still missing its cost:
+  // linking these can fix the item's (overstated) profit in one tap. The payment's
+  // category picks how to apply it — shipping payments as shipping, everything else
+  // as the purchase cost.
+  const reconcileTargets = useMemo(() => {
+    const map = new Map<string, ReconcileTarget>();
+    suggestions.forEach((sug, txId) => {
+      if (!soldNeedsCost(sug.item)) return;
+      const tx = txns.find((t) => t.id === txId);
+      const applyAs: ApplyAs = tx?.category === 'SHIPPING' ? 'SHIPPING' : 'PURCHASE';
+      map.set(txId, { item: sug.item, applyAs });
+    });
+    return map;
+  }, [suggestions, txns]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return txns.filter((t) => {
+      if (reconcileOnly && !reconcileTargets.has(t.id)) return false;
+      if (unlinkedOnly && (t.item || t.splits?.length)) return false;
+      if (catFilter && (t.category || 'OTHER') !== catFilter) return false;
+      if (q && !t.description.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [txns, search, catFilter, unlinkedOnly, reconcileOnly, reconcileTargets]);
+
   async function acceptSuggestion(txId: string, item: Item) {
     setTxns((prev) =>
       prev.map((t) =>
@@ -108,6 +134,22 @@ export function Transactions() {
       ),
     );
     await api.transactions.update(txId, { itemId: item.id });
+  }
+
+  // Link the payment to the sold item AND set it as that item's cost, fixing the
+  // overstated profit. Reload afterwards so the item's cost state (and this list of
+  // reconcile targets) reflects the change.
+  async function reconcile(txId: string, target: ReconcileTarget) {
+    const { item, applyAs } = target;
+    setTxns((prev) =>
+      prev.map((t) =>
+        t.id === txId
+          ? { ...t, item: { id: item.id, brand: item.brand, model: item.model }, itemId: item.id }
+          : t,
+      ),
+    );
+    await api.transactions.update(txId, { itemId: item.id, applyAs });
+    load();
   }
 
   async function changeCategory(id: string, category: string) {
@@ -127,7 +169,13 @@ export function Transactions() {
     load();
   }
 
-  const filtersActive = Boolean(search || catFilter || unlinkedOnly);
+  const filtersActive = Boolean(search || catFilter || unlinkedOnly || reconcileOnly);
+
+  function toggleReconcile() {
+    setReconcileOnly((v) => !v);
+    setUnlinkedOnly(false);
+    setCatFilter(null);
+  }
 
   return (
     <>
@@ -158,6 +206,26 @@ export function Transactions() {
             accent={summary.other > 0}
           />
         </div>
+
+        {/* Reconcile insight — unlinked payments that can fix a sold item's cost */}
+        {reconcileTargets.size > 0 && (
+          <button
+            onClick={toggleReconcile}
+            className={`flex w-full items-center gap-2 rounded-xl border p-3 text-left text-sm transition ${
+              reconcileOnly
+                ? 'border-amber-500/60 bg-amber-500/15 text-amber-200'
+                : 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:border-amber-500/50'
+            }`}
+          >
+            <span>⚙</span>
+            <span className="flex-1">
+              {reconcileTargets.size} unlinked{' '}
+              {reconcileTargets.size === 1 ? 'payment matches a sold item' : 'payments match sold items'}{' '}
+              missing cost — tap to {reconcileOnly ? 'show all' : 'review & apply'}.
+            </span>
+            {reconcileOnly && <span className="text-xs text-amber-300/70">showing these ✕</span>}
+          </button>
+        )}
 
         {/* Search + filters */}
         <div className="space-y-2">
@@ -221,6 +289,7 @@ export function Transactions() {
                     setSearch('');
                     setCatFilter(null);
                     setUnlinkedOnly(false);
+                    setReconcileOnly(false);
                   }}
                   className="text-neutral-400 hover:text-gold"
                 >
@@ -232,6 +301,7 @@ export function Transactions() {
               {filtered.map((t) => {
                 const eurAmt = t.amountEur ?? t.amount;
                 const showRaw = t.currency !== 'EUR';
+                const target = reconcileTargets.get(t.id);
                 return (
                   <li
                     key={t.id}
@@ -327,6 +397,35 @@ export function Transactions() {
                             ✕
                           </button>
                         </span>
+                      ) : target ? (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            onClick={() => reconcile(t.id, target)}
+                            title={`Link and set ${eur(eurAmt)} as ${target.item.brand}'s ${
+                              target.applyAs === 'SHIPPING' ? 'shipping' : 'purchase'
+                            } cost — fixes its profit`}
+                            className="inline-flex max-w-[190px] items-center gap-1 rounded-lg border border-amber-500/50 bg-amber-500/15 px-2.5 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-500/25"
+                          >
+                            <span>⚙</span>
+                            <span className="truncate">
+                              Fix {target.item.brand} · {target.applyAs === 'SHIPPING' ? 'shipping' : 'purchase'}
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => setLinkTx(t)}
+                            title="Pick a different item or cost type"
+                            className="rounded-lg border border-edge px-2 py-1.5 text-xs text-neutral-400 hover:border-gold/50 hover:text-gold"
+                          >
+                            ⋯
+                          </button>
+                          <button
+                            onClick={() => setSplitTx(t)}
+                            title="Split across items"
+                            className="rounded-lg border border-edge px-2 py-1.5 text-xs text-neutral-400 hover:border-gold/50 hover:text-gold"
+                          >
+                            ⊟
+                          </button>
+                        </div>
                       ) : suggestions.has(t.id) ? (
                         <div className="flex shrink-0 items-center gap-1">
                           <button
