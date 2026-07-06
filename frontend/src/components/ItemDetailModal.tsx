@@ -132,6 +132,33 @@ export function ItemDetailModal({ item, onClose, onChanged }: Props) {
             </div>
           )}
 
+          {/* Sold: override the final negotiated price (e.g. a sale synced at the
+              listing price but was actually negotiated down). Recomputes profit. */}
+          {item.status === 'SOLD' && (
+            <div className="mt-4">
+              <label className="text-xs text-neutral-500">Adjust final sale price (€)</label>
+              <div className="mt-1 flex gap-2">
+                <input
+                  value={sale}
+                  onChange={(e) => setSale(e.target.value)}
+                  inputMode="decimal"
+                  placeholder={item.salePrice != null ? String(item.salePrice) : 'Sale €'}
+                  className="input flex-1"
+                />
+                <button
+                  disabled={busy || !sale}
+                  onClick={() => patch({ salePrice: Number(sale) })}
+                  className="btn-ghost"
+                >
+                  Update
+                </button>
+              </div>
+              <p className="mt-1 text-[11px] text-neutral-600">
+                Overrides the price if a sale synced at the listing price. Recomputes net profit.
+              </p>
+            </div>
+          )}
+
           {/* Advance status */}
           <div className="mt-4 flex flex-wrap gap-2">
             {advance && advance !== 'SOLD' && (
