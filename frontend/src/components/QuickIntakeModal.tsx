@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/endpoints';
+import { eur } from '../lib/format';
 import type { Runner } from '../api/types';
 
 interface Props {
@@ -25,6 +26,8 @@ export function QuickIntakeModal({ open, onClose, onCreated }: Props) {
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // After saving, we show the AI time-to-sell estimate before closing.
+  const [estimate, setEstimate] = useState<any>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
@@ -46,6 +49,12 @@ export function QuickIntakeModal({ open, onClose, onCreated }: Props) {
     setNewRunner('');
     setNotes('');
     setError(null);
+    setEstimate(null);
+  }
+
+  function finish() {
+    reset();
+    onClose();
   }
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -70,10 +79,11 @@ export function QuickIntakeModal({ open, onClose, onCreated }: Props) {
       if (runnerId) form.set('runnerId', runnerId);
       else if (newRunner.trim()) form.set('runnerName', newRunner.trim());
       if (photo) form.set('photo', photo);
-      await api.items.create(form);
-      reset();
-      onCreated();
-      onClose();
+      const item = await api.items.create(form);
+      onCreated(); // refresh Future Stock in the background
+      // Show the AI time-to-sell estimate for the new item before closing.
+      const est = await api.ai.pricing(item.id).catch(() => null);
+      setEstimate(est ?? { unavailable: true });
     } catch (e: any) {
       setError(e?.message || 'Failed to save item');
     } finally {
@@ -87,12 +97,18 @@ export function QuickIntakeModal({ open, onClose, onCreated }: Props) {
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 sm:items-center">
       <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-edge bg-card p-5 sm:rounded-2xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-neutral-100">Quick Intake</h2>
-          <button onClick={onClose} className="text-neutral-500 hover:text-neutral-200">
+          <h2 className="text-lg font-semibold text-neutral-100">
+            {estimate ? 'Added ✓' : 'Quick Intake'}
+          </h2>
+          <button onClick={finish} className="text-neutral-500 hover:text-neutral-200">
             ✕
           </button>
         </div>
 
+        {estimate ? (
+          <EstimateView estimate={estimate} onDone={finish} />
+        ) : (
+          <>
         {/* Photo */}
         <div className="mb-4">
           <div className="flex aspect-video w-full items-center justify-center overflow-hidden rounded-xl border border-dashed border-edge bg-black/30 text-neutral-500">
@@ -239,7 +255,63 @@ export function QuickIntakeModal({ open, onClose, onCreated }: Props) {
             <option key={i} value={b} />
           ))}
         </datalist>
+          </>
+        )}
       </div>
+    </div>
+  );
+}
+
+const CONFIDENCE_STYLE: Record<string, string> = {
+  high: 'border-status-stock/40 bg-status-stock/15 text-status-stock',
+  medium: 'border-status-transit/40 bg-status-transit/15 text-status-transit',
+  low: 'border-red-500/40 bg-red-500/15 text-red-400',
+};
+
+/** Post-save AI time-to-sell + recommended price for the new item. */
+function EstimateView({ estimate: e, onDone }: { estimate: any; onDone: () => void }) {
+  const hasEstimate = e && typeof e.daysToSell === 'number';
+  return (
+    <div className="space-y-4">
+      {hasEstimate ? (
+        <>
+          <div className="rounded-xl border border-gold/30 bg-gold/[0.06] p-4">
+            <div className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+              🤖 AI time-to-sell estimate
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-semibold text-neutral-100">~{e.daysToSell} days</span>
+              {e.confidence && (
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                    CONFIDENCE_STYLE[e.confidence] ?? 'border-edge text-neutral-400'
+                  }`}
+                >
+                  {e.confidence} confidence
+                </span>
+              )}
+            </div>
+            {e.recommendedPrice != null && (
+              <div className="mt-1 text-sm text-neutral-300">
+                Recommended listing price:{' '}
+                <span className="font-semibold text-gold">{eur(e.recommendedPrice)}</span>
+              </div>
+            )}
+            {e.reasoning && <p className="mt-2 text-xs text-neutral-500">{e.reasoning}</p>}
+          </div>
+        </>
+      ) : (
+        <div className="rounded-xl border border-edge bg-black/20 p-4 text-sm text-neutral-400">
+          {e?.message ??
+            'Saved to Future Stock. Not enough sales history yet for a time-to-sell estimate.'}
+        </div>
+      )}
+      <button
+        onClick={onDone}
+        className="w-full rounded-xl bg-gold py-3 font-semibold text-black transition hover:brightness-110"
+      >
+        Done
+      </button>
     </div>
   );
 }
