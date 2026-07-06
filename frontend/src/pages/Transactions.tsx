@@ -6,6 +6,7 @@ import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
 import { LinkItemModal } from '../components/LinkItemModal';
 import { SplitItemModal } from '../components/SplitItemModal';
+import { QuickIntakeModal } from '../components/QuickIntakeModal';
 import { eur, money, shortDate } from '../lib/format';
 import { soldNeedsCost } from '../lib/cost';
 import { isUnlinked } from '../lib/tx';
@@ -57,6 +58,7 @@ export function Transactions() {
   const [editingCat, setEditingCat] = useState<string | null>(null);
   const [linkTx, setLinkTx] = useState<WiseTransaction | null>(null);
   const [splitTx, setSplitTx] = useState<WiseTransaction | null>(null);
+  const [createTx, setCreateTx] = useState<WiseTransaction | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -489,6 +491,20 @@ export function Transactions() {
             setLinkTx(null);
             load();
           }}
+          onCreateNew={() => {
+            setCreateTx(linkTx);
+            setLinkTx(null);
+          }}
+        />
+      )}
+
+      {createTx && (
+        <QuickIntakeModal
+          open
+          linkTxId={createTx.id}
+          prefill={{ price: String(createTx.amountEur ?? createTx.amount), currency: 'EUR' }}
+          onClose={() => setCreateTx(null)}
+          onCreated={load}
         />
       )}
 

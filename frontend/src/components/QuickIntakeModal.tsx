@@ -7,12 +7,16 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  // When creating an item from a payment: link that payment to the new item and
+  // prefill the purchase price with its amount.
+  linkTxId?: string;
+  prefill?: { price?: string; currency?: string };
 }
 
 const CURRENCIES = ['EUR', 'GBP', 'NGN', 'KES'];
 const GRADES = ['A', 'B', 'C', 'Ungraded'];
 
-export function QuickIntakeModal({ open, onClose, onCreated }: Props) {
+export function QuickIntakeModal({ open, onClose, onCreated, linkTxId, prefill }: Props) {
   const [runners, setRunners] = useState<Runner[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -34,7 +38,10 @@ export function QuickIntakeModal({ open, onClose, onCreated }: Props) {
   useEffect(() => {
     if (open) {
       api.runners.list().then((r) => setRunners(r.data)).catch(() => setRunners([]));
+      if (prefill?.price != null) setPrice(prefill.price);
+      if (prefill?.currency && CURRENCIES.includes(prefill.currency)) setCurrency(prefill.currency);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   function reset() {
@@ -80,7 +87,9 @@ export function QuickIntakeModal({ open, onClose, onCreated }: Props) {
       else if (newRunner.trim()) form.set('runnerName', newRunner.trim());
       if (photo) form.set('photo', photo);
       const item = await api.items.create(form);
-      onCreated(); // refresh Future Stock in the background
+      // If this intake was started from a payment, link it to the new item.
+      if (linkTxId) await api.transactions.update(linkTxId, { itemId: item.id });
+      onCreated(); // refresh Future Stock / transactions in the background
       // Show the AI time-to-sell estimate for the new item before closing.
       const est = await api.ai.pricing(item.id).catch(() => null);
       setEstimate(est ?? { unavailable: true });
@@ -109,6 +118,11 @@ export function QuickIntakeModal({ open, onClose, onCreated }: Props) {
           <EstimateView estimate={estimate} onDone={finish} />
         ) : (
           <>
+        {linkTxId && (
+          <p className="mb-3 rounded-lg border border-gold/25 bg-gold/[0.06] p-2.5 text-xs text-neutral-400">
+            Creating an item for this payment — it’ll be added to <span className="text-gold">Future Stock</span> and the payment linked to it.
+          </p>
+        )}
         {/* Photo */}
         <div className="mb-4">
           <div className="flex aspect-video w-full items-center justify-center overflow-hidden rounded-xl border border-dashed border-edge bg-black/30 text-neutral-500">

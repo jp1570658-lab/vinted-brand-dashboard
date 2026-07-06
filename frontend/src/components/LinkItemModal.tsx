@@ -11,6 +11,7 @@ interface Props {
   items: Item[];
   onClose: () => void;
   onDone: () => void;
+  onCreateNew: () => void;
 }
 
 type ApplyChoice = 'NONE' | 'PURCHASE' | 'SHIPPING';
@@ -21,7 +22,7 @@ const APPLY_OPTIONS: { key: ApplyChoice; label: string; hint: string }[] = [
   { key: 'SHIPPING', label: 'Shipping', hint: 'Add this as the item shipping cost' },
 ];
 
-export function LinkItemModal({ tx, items, onClose, onDone }: Props) {
+export function LinkItemModal({ tx, items, onClose, onDone, onCreateNew }: Props) {
   const [query, setQuery] = useState('');
   const [choice, setChoice] = useState<ApplyChoice>('NONE');
   const [busy, setBusy] = useState(false);
@@ -98,8 +99,8 @@ export function LinkItemModal({ tx, items, onClose, onDone }: Props) {
           </button>
         </div>
 
-        {/* Search */}
-        <div className="border-b border-edge p-3">
+        {/* Search + create-new */}
+        <div className="space-y-2 border-b border-edge p-3">
           <input
             autoFocus
             value={query}
@@ -107,6 +108,12 @@ export function LinkItemModal({ tx, items, onClose, onDone }: Props) {
             placeholder="Search brand, model, colour…"
             className="input w-full"
           />
+          <button
+            onClick={onCreateNew}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-gold/40 bg-gold/[0.06] py-2 text-sm font-medium text-gold transition hover:bg-gold/15"
+          >
+            ＋ Create a new item for this payment
+          </button>
         </div>
 
         {/* Item list */}
