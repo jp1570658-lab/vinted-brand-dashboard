@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vinted Brand Dashboard — User Guide</title>
+<style>
+  :root{
+    --base:#0a0a0a; --card:#141414; --card2:#191919; --edge:#2a2a2a;
+    --gold:#c9a84c; --ink:#ededed; --mut:#8a8a8a; --mut2:#6a6a6a;
+    --blue:#5b9bd5; --amber:#d6a23e; --green:#56b870; --gray:#9aa0a6; --red:#e0686a;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--base); color:var(--ink);
+    font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.6; font-size:16px;
+  }
+  a{color:var(--gold); text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:.86em;
+    background:#000; border:1px solid var(--edge); border-radius:6px; padding:.08em .4em; color:#e8d9a6}
+  pre{background:#000; border:1px solid var(--edge); border-radius:10px; padding:14px 16px; overflow:auto}
+  pre code{border:0; background:none; padding:0; color:#cfd4da}
+
+  .wrap{max-width:1180px; margin:0 auto; display:grid; grid-template-columns:248px 1fr; gap:0}
+  /* Sidebar */
+  nav.toc{
+    position:sticky; top:0; align-self:start; height:100vh; overflow:auto;
+    border-right:1px solid var(--edge); padding:26px 18px; background:#0c0c0c;
+  }
+  nav.toc .brand{display:flex; align-items:center; gap:9px; font-weight:800; color:var(--gold); margin-bottom:6px; font-size:1.05rem}
+  nav.toc .sub{color:var(--mut2); font-size:.74rem; text-transform:uppercase; letter-spacing:.08em; margin:18px 0 6px}
+  nav.toc a{display:block; color:var(--mut); padding:5px 8px; border-radius:8px; font-size:.9rem}
+  nav.toc a:hover{background:#181818; color:var(--ink); text-decoration:none}
+
+  main{padding:46px 54px 120px; min-width:0}
+  header.hero{margin-bottom:40px}
+  header.hero h1{font-size:2.15rem; margin:0 0 6px; letter-spacing:-.01em}
+  header.hero p.lead{color:var(--mut); font-size:1.06rem; margin:.2em 0 0; max-width:70ch}
+  .pill{display:inline-block; font-size:.7rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+    border-radius:999px; padding:3px 10px; border:1px solid; vertical-align:middle}
+  .pill.gold{color:var(--gold); border-color:#5a4d24; background:rgba(201,168,76,.12)}
+  .pill.green{color:var(--green); border-color:#2c5538; background:rgba(86,184,112,.12)}
+
+  section{scroll-margin-top:18px; margin-bottom:48px}
+  h2{font-size:1.5rem; margin:0 0 4px; letter-spacing:-.01em; display:flex; align-items:center; gap:10px}
+  h2 .ic{font-size:1.25rem}
+  h2 + .desc{color:var(--mut); margin:0 0 20px}
+  h3{font-size:1.06rem; margin:26px 0 8px; color:#f3eddd}
+
+  .card{background:var(--card); border:1px solid var(--edge); border-radius:var(--radius); padding:20px 22px}
+  .grid{display:grid; gap:14px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+  .kpi{background:var(--card); border:1px solid var(--edge); border-radius:var(--radius); padding:16px}
+  .kpi .lab{font-size:.7rem; letter-spacing:.06em; text-transform:uppercase; color:var(--mut2)}
+  .kpi .val{font-size:1.5rem; font-weight:800; margin-top:3px}
+  .kpi .val.gold{color:var(--gold)}
+  .kpi .hint{font-size:.78rem; color:var(--mut2); margin-top:3px}
+
+  table{width:100%; border-collapse:collapse; font-size:.92rem; border:1px solid var(--edge); border-radius:var(--radius); overflow:hidden}
+  th,td{text-align:left; padding:10px 13px; border-bottom:1px solid #222}
+  th{font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--mut2); background:#101010}
+  tr:last-child td{border-bottom:0}
+  td code{white-space:nowrap}
+
+  .stage{display:flex; align-items:center; gap:0; flex-wrap:wrap; margin:8px 0 4px}
+  .stage .step{flex:1; min-width:150px; background:var(--card); border:1px solid var(--edge); border-radius:12px; padding:14px}
+  .stage .arr{color:var(--mut2); padding:0 10px; font-size:1.3rem}
+  .badge{display:inline-block; font-size:.7rem; font-weight:700; border-radius:6px; padding:2px 8px; border:1px solid}
+  .b-blue{color:var(--blue); border-color:#2f4a63; background:rgba(91,155,213,.12)}
+  .b-amber{color:var(--amber); border-color:#5e4a1f; background:rgba(214,162,62,.12)}
+  .b-green{color:var(--green); border-color:#2c5538; background:rgba(86,184,112,.12)}
+  .b-gray{color:var(--gray); border-color:#3a3d40; background:rgba(154,160,166,.12)}
+
+  ul.clean{margin:8px 0; padding-left:20px} ul.clean li{margin:5px 0}
+  .note{border-left:3px solid var(--gold); background:rgba(201,168,76,.06); padding:12px 16px; border-radius:0 10px 10px 0; margin:14px 0}
+  .note.warn{border-color:var(--red); background:rgba(224,104,106,.07)}
+  .note .t{font-weight:700; color:var(--gold)}
+  .note.warn .t{color:var(--red)}
+  .muted{color:var(--mut)}
+  .steps{counter-reset:s; list-style:none; padding:0; margin:10px 0}
+  .steps li{counter-increment:s; position:relative; padding:8px 0 8px 42px; border-bottom:1px solid #1d1d1d}
+  .steps li:last-child{border-bottom:0}
+  .steps li::before{content:counter(s); position:absolute; left:0; top:8px; width:28px; height:28px; border-radius:8px;
+    background:rgba(201,168,76,.14); color:var(--gold); border:1px solid #5a4d24; display:grid; place-items:center; font-weight:700; font-size:.85rem}
+  .tag{font-size:.7rem; color:var(--mut2); border:1px solid var(--edge); border-radius:6px; padding:1px 7px; margin-left:6px}
+  footer{color:var(--mut2); font-size:.85rem; border-top:1px solid var(--edge); padding-top:20px; margin-top:40px}
+
+  @media (max-width:900px){
+    .wrap{grid-template-columns:1fr}
+    nav.toc{position:static; height:auto; border-right:0; border-bottom:1px solid var(--edge)}
+    main{padding:30px 20px 80px}
+    .g2,.g3,.g4{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:560px){ .g2,.g3,.g4{grid-template-columns:1fr} header.hero h1{font-size:1.7rem} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ SIDEBAR ============ -->
+  <nav class="toc">
+    <div class="brand">👜 Vinted Dashboard</div>
+    <div class="muted" style="font-size:.78rem">User &amp; operator guide</div>
+
+    <div class="sub">Start here</div>
+    <a href="#overview">What it is</a>
+    <a href="#lifecycle">The 4‑stage lifecycle</a>
+    <a href="#login">Logging in &amp; modes</a>
+
+    <div class="sub">Using it day‑to‑day</div>
+    <a href="#intake">Adding stock (Quick Intake)</a>
+    <a href="#pages">The pages</a>
+    <a href="#analytics">Analytics</a>
+    <a href="#alerts">Aging alerts</a>
+
+    <div class="sub">How it works</div>
+    <a href="#sales">Sale detection</a>
+    <a href="#wise">Expense tracking (Wise)</a>
+    <a href="#ai">AI insights</a>
+    <a href="#money">Money &amp; profit maths</a>
+    <a href="#automation">Automation schedule</a>
+
+    <div class="sub">Reference</div>
+    <a href="#security">Security</a>
+    <a href="#deploy">Modes &amp; deployment</a>
+    <a href="#api">API reference</a>
+    <a href="#faq">Troubleshooting</a>
+  </nav>
+
+  <!-- ============ MAIN ============ -->
+  <main>
+    <header class="hero">
+      <h1>Vinted Brand Dashboard</h1>
+      <p class="lead">A mobile‑first command centre for a luxury second‑hand bag reselling business. It tracks every
+      bag from the moment you source it abroad to the moment it sells on Vinted — and automates the boring parts:
+      detecting sales, logging expenses, forecasting revenue, and warning you when stock gets stuck.</p>
+      <p style="margin-top:14px"><span class="pill gold">DEMO ready</span> <span class="pill green">Live on Railway</span></p>
+    </header>
+
+    <!-- OVERVIEW -->
+    <section id="overview">
+      <h2><span class="ic">🧭</span> What it is</h2>
+      <p class="desc">One screen that answers: <em>what do I own, where is it, what's stuck, and am I making money?</em></p>
+      <div class="grid g3">
+        <div class="card"><h3 style="margin-top:0">📦 Inventory tracker</h3><p class="muted" style="margin:0">Every bag is a record moving through four stages, with photos, grades, costs, and a runner (the person who sourced it).</p></div>
+        <div class="card"><h3 style="margin-top:0">🤖 Automation</h3><p class="muted" style="margin:0">Sales are detected automatically by scraping your Vinted wardrobe; expenses pull in from Wise; aging stock triggers alerts.</p></div>
+        <div class="card"><h3 style="margin-top:0">📈 Intelligence</h3><p class="muted" style="margin:0">KPIs, a profit‑analytics page, and Claude‑powered pricing, sourcing‑ROI and revenue forecasts.</p></div>
+      </div>
+      <div class="note"><span class="t">Built with</span> — Node + Express + TypeScript and Prisma on the backend; React + TypeScript + Tailwind (Vite) on the frontend; PostgreSQL in production. Everything runs end‑to‑end in <strong>DEMO mode</strong> with zero credentials before you ever connect a real account.</div>
+    </section>
+
+    <!-- LIFECYCLE -->
+    <section id="lifecycle">
+      <h2><span class="ic">🔄</span> The 4‑stage lifecycle</h2>
+      <p class="desc">Every item lives in exactly one stage. Moving an item stamps the date it entered that stage, so timers and analytics are automatic.</p>
+      <div class="stage">
+        <div class="step"><span class="badge b-blue">SOURCED</span><p class="muted" style="margin:8px 0 0">Bought abroad, not yet shipped. Capital is committed. This is where the <strong>14‑day aging</strong> clock runs.</p></div>
+        <span class="arr">→</span>
+        <div class="step"><span class="badge b-amber">IN&nbsp;TRANSIT</span><p class="muted" style="margin:8px 0 0">On its way to you. Shows days in transit.</p></div>
+        <span class="arr">→</span>
+        <div class="step"><span class="badge b-green">IN&nbsp;STOCK</span><p class="muted" style="margin:8px 0 0">In hand and listed on Vinted. Has a listed price you can quick‑edit.</p></div>
+        <span class="arr">→</span>
+        <div class="step"><span class="badge b-gray">SOLD</span><p class="muted" style="margin:8px 0 0">Sold. Net profit &amp; margin are calculated and frozen on the record.</p></div>
+      </div>
+      <div class="note"><span class="t">Why stages matter</span> — each list page in the app is just a filtered view of one stage, and the "days in stage" timers (and the aging alert) are derived from the stamped timestamps.</div>
+    </section>
+
+    <!-- LOGIN -->
+    <section id="login">
+      <h2><span class="ic">🔐</span> Logging in &amp; modes</h2>
+      <p class="desc">The whole app sits behind one password. There's no multi‑user system — it's a single‑operator tool.</p>
+      <ul class="clean">
+        <li><strong>Login:</strong> a single password (<code>DASHBOARD_PASSWORD</code>). A session cookie keeps you logged in for 7 days.</li>
+        <li><strong>Mode badge:</strong> the top bar shows <span class="pill gold">DEMO</span> or <span class="pill green">LIVE</span> so you always know whether you're looking at mock data or the real thing.</li>
+      </ul>
+      <div class="grid g2" style="margin-top:8px">
+        <div class="card"><h3 style="margin-top:0"><span class="pill gold">DEMO</span> mode</h3>
+          <p class="muted" style="margin:0">Every external call — Vinted, Wise, Claude, email — is replaced by realistic mock data. The database is seeded with demo items and runners. Perfect for learning the app or testing changes. Default password in demo: <code>demo1234</code>.</p></div>
+        <div class="card"><h3 style="margin-top:0"><span class="pill green">LIVE</span> mode</h3>
+          <p class="muted" style="margin:0">Real APIs and your real database. Switched on with <code>APP_MODE=LIVE</code> plus the relevant credentials. Background jobs (scraper, Wise poll, alert email) only run in LIVE.</p></div>
+      </div>
+    </section>
+
+    <!-- INTAKE -->
+    <section id="intake">
+      <h2><span class="ic">➕</span> Adding stock — the Quick Intake</h2>
+      <p class="desc">The floating <strong>+</strong> button (bottom‑right, on every screen) opens the Quick Intake sheet. Designed to add a bag in seconds from your phone.</p>
+      <ol class="steps">
+        <li><strong>Add a photo</strong> — two options: <em>📷 Take photo</em> opens your camera directly, or <em>🖼️ Choose from gallery</em> opens your photo library / files. After picking one, the buttons become <em>Retake photo</em> / <em>Change</em>.</li>
+        <li><strong>Brand &amp; Model</strong> — e.g. <em>Louis Vuitton · Neverfull MM</em>. Both required.</li>
+        <li><strong>Grade</strong> — tap a chip: A / B / C / Ungraded.</li>
+        <li><strong>Purchase price + currency</strong> — type the amount and pick EUR, GBP, NGN or KES. It's converted to EUR and frozen on the record (see <a href="#money">Money &amp; profit maths</a>).</li>
+        <li><strong>Runner</strong> — choose an existing runner, or type a new name to create one inline.</li>
+        <li><strong>Notes</strong> — optional.</li>
+      </ol>
+      <p class="muted">On save, the item is created as <span class="badge b-blue">SOURCED</span>, time‑stamped, and appears immediately in <strong>Future Stock</strong>.</p>
+      <div class="note"><span class="t">The camera vs. gallery fix</span> — previously the photo field forced the camera on mobile (it used a "capture" hint). It's now two separate inputs so you can pull an existing photo from your gallery <em>or</em> shoot a new one.</div>
+    </section>
+
+    <!-- PAGES -->
+    <section id="pages">
+      <h2><span class="ic">🗂️</span> The pages</h2>
+      <p class="desc">A left sidebar (a slide‑in drawer on mobile) links every view.</p>
+      <table>
+        <thead><tr><th>Page</th><th>What you see</th><th>Key actions</th></tr></thead>
+        <tbody>
+          <tr><td>📊 <strong>Dashboard</strong></td><td>Five KPI cards (revenue this month/year, net profit this month, inventory value, count by status) plus the AI insights panel.</td><td>At‑a‑glance health; jump to any section.</td></tr>
+          <tr><td>🌱 <strong>Future Stock</strong></td><td>Card grid of <span class="badge b-blue">SOURCED</span> items with photo, brand/model/grade, purchase price, runner, and an aging timer.</td><td>Spot stuck stock (red border &gt; 14 days).</td></tr>
+          <tr><td>✈️ <strong>In Transit</strong></td><td>Card grid of <span class="badge b-amber">IN&nbsp;TRANSIT</span> items, showing days in transit.</td><td>Track inbound shipments.</td></tr>
+          <tr><td>🏷️ <strong>In Stock</strong></td><td>Card grid of <span class="badge b-green">IN&nbsp;STOCK</span> items with the listed price.</td><td>Quick‑edit listed price.</td></tr>
+          <tr><td>💰 <strong>Sold</strong></td><td>Table of <span class="badge b-gray">SOLD</span> items: sale price, cost, net profit, margin %, sold date, and a source badge (Auto / Manual).</td><td>Review realised profit.</td></tr>
+          <tr><td>📈 <strong>Analytics</strong></td><td>Profit trends &amp; breakdowns — see below.</td><td>Find your best brands &amp; runners.</td></tr>
+          <tr><td>🧾 <strong>Transactions</strong></td><td>Table of Wise expenses: date, description, amount, category pill, and the linked item (or an "Unlinked" button).</td><td>Link a cost to an item; re‑categorise.</td></tr>
+          <tr><td>⚙️ <strong>Settings</strong></td><td>Change password, view sync status &amp; manually trigger the Vinted / Wise syncs, and manage runners.</td><td>Run a sync on demand; add runners.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ANALYTICS -->
+    <section id="analytics">
+      <h2><span class="ic">📈</span> Analytics</h2>
+      <p class="desc">A dedicated page that turns your sold history into decisions. Until you have sold items it shows a friendly empty state.</p>
+      <div class="grid g4" style="margin-bottom:14px">
+        <div class="kpi"><div class="lab">Total revenue</div><div class="val">€—</div><div class="hint">across all sales</div></div>
+        <div class="kpi"><div class="lab">Net profit</div><div class="val gold">€—</div><div class="hint">after all costs</div></div>
+        <div class="kpi"><div class="lab">Avg margin</div><div class="val">—%</div><div class="hint">profit ÷ revenue</div></div>
+        <div class="kpi"><div class="lab">Avg days to sell</div><div class="val">—d</div><div class="hint">sourced → sold</div></div>
+      </div>
+      <ul class="clean">
+        <li><strong>6‑month trend</strong> — a bar chart comparing <span style="color:var(--gold)">revenue</span> vs <span style="color:var(--green)">net profit</span> per month (losses show in red).</li>
+        <li><strong>By brand</strong> — units, revenue, profit, margin and average days to sell, sorted by most profitable.</li>
+        <li><strong>By runner</strong> — the same breakdown per sourcing person, so you can see who actually makes you money.</li>
+      </ul>
+      <p class="muted">It reads from <code>GET /api/items/analytics</code>, which aggregates every sold item server‑side. "Days to sell" is measured from <em>sourced</em> to <em>sold</em>. Margin is blended (total profit ÷ total revenue) per group.</p>
+    </section>
+
+    <!-- ALERTS -->
+    <section id="alerts">
+      <h2><span class="ic">⏰</span> Aging alerts</h2>
+      <p class="desc">Capital stuck abroad is the silent killer of a reselling business, so the app watches for it.</p>
+      <ul class="clean">
+        <li>Any <span class="badge b-blue">SOURCED</span> item older than <strong>14 days</strong> is "aged".</li>
+        <li>Its card gets a <span style="color:var(--red)">red border + a pulsing ⚠️</span> badge showing how long it's been stuck.</li>
+        <li>A dismissible banner appears at the top: <em>"⚠️ N bags have been stuck abroad for over 14 days."</em> (Dismissal lasts the session.)</li>
+        <li>In LIVE mode a <strong>daily 08:00 email</strong> lists every flagged item with its runner, days stuck, and value at risk.</li>
+      </ul>
+    </section>
+
+    <!-- SALES -->
+    <section id="sales">
+      <h2><span class="ic">🛰️</span> How sale detection works</h2>
+      <p class="desc">You shouldn't have to mark things sold by hand. The app figures it out by watching your Vinted wardrobe.</p>
+      <h3>Wardrobe‑diff scraping (primary)</h3>
+      <ul class="clean">
+        <li>Once a day at <strong>06:00</strong> the app fetches your public Vinted wardrobe (your live listings).</li>
+        <li>It compares today's listings to the snapshot from the last run. <strong>A listing that has vanished is treated as sold.</strong></li>
+        <li>Each detected sale is matched to an <span class="badge b-green">IN&nbsp;STOCK</span> item by name similarity (Levenshtein distance). A confident match is marked <span class="badge b-gray">SOLD</span> with source <code>AUTO_VINTED</code>; anything it can't match is logged for manual review rather than guessed.</li>
+      </ul>
+      <div class="note warn"><span class="t">Safety guard</span> — if the wardrobe fetch returns <em>zero</em> listings (usually an expired cookie or a blocked request), the run aborts. A bad fetch will <strong>never</strong> mark your whole wardrobe as sold.</div>
+      <h3>Gmail detection (fallback)</h3>
+      <p class="muted">An earlier method parsed Vinted "You've sold" emails from Gmail and matched them to items (source <code>AUTO_GMAIL</code>). It's kept as a manual fallback (<code>/api/sync/gmail</code>) but no longer runs automatically — the wardrobe scraper replaced it.</p>
+      <h3>Manual</h3>
+      <p class="muted">You can always change an item's status yourself; manually sold items are tagged <code>MANUAL</code>. You can also trigger either sync on demand from <strong>Settings</strong>.</p>
+    </section>
+
+    <!-- WISE -->
+    <section id="wise">
+      <h2><span class="ic">🧾</span> Expense tracking (Wise)</h2>
+      <p class="desc">Costs flow in from your Wise account so profit reflects reality, not just sale price minus purchase price.</p>
+      <ul class="clean">
+        <li>In LIVE mode the app polls Wise <strong>every 6 hours</strong> for outgoing payments, de‑duplicated by Wise's own transaction id (no double‑counting).</li>
+        <li>Each transaction is <strong>auto‑categorised</strong>: courier names (DHL / UPS / Colissimo) → <em>Shipping</em>; a runner's name → <em>Runner payment</em>; large transfers → <em>Stock purchase</em>; otherwise <em>Other</em>.</li>
+        <li>On the <strong>Transactions</strong> page you can link a cost to a specific bag — it then shows on that item's detail and feeds its net‑profit calculation.</li>
+      </ul>
+    </section>
+
+    <!-- AI -->
+    <section id="ai">
+      <h2><span class="ic">✨</span> AI insights</h2>
+      <p class="desc">Three Claude‑powered analyses (model <code>claude-haiku-4-5</code>). They unlock once you have at least <strong>5 sold items</strong> — below that you get a friendly "not enough data yet" message instead of a guess.</p>
+      <div class="grid g3">
+        <div class="card"><h3 style="margin-top:0">💷 Time‑to‑sell &amp; pricing</h3><p class="muted" style="margin:0">For a given item, suggests a recommended price and expected days‑to‑sell with a confidence level and reasoning, based on your last 90 days of comparable sales.</p></div>
+        <div class="card"><h3 style="margin-top:0">🌍 Sourcing ROI</h3><p class="muted" style="margin:0">Ranks your runners by margin, speed and total profit, and names the one to prioritise this week.</p></div>
+        <div class="card"><h3 style="margin-top:0">🔮 Revenue forecast</h3><p class="muted" style="margin:0">Projects next month's revenue and profit from recent weekly sales and current inventory, flagging risks like aged stock.</p></div>
+      </div>
+      <p class="muted" style="margin-top:14px">In DEMO mode these return realistic canned responses so you can see the panels without an API key. Token usage is logged server‑side in LIVE mode.</p>
+    </section>
+
+    <!-- MONEY -->
+    <section id="money">
+      <h2><span class="ic">💶</span> Money &amp; profit maths</h2>
+      <p class="desc">All figures display in EUR. Conversions are deliberately simple and <em>frozen</em> so historical numbers never drift.</p>
+      <h3>Currency conversion</h3>
+      <p class="muted">There's no live FX feed. A fixed rate table converts the purchase price to EUR <em>at the moment you add the item</em>, and that EUR value is stored on the record permanently.</p>
+      <table style="max-width:420px">
+        <thead><tr><th>Currency</th><th>Rate → EUR</th></tr></thead>
+        <tbody>
+          <tr><td>EUR</td><td><code>1.00</code></td></tr>
+          <tr><td>GBP</td><td><code>1.17</code></td></tr>
+          <tr><td>NGN</td><td><code>0.00055</code></td></tr>
+          <tr><td>KES</td><td><code>0.0069</code></td></tr>
+        </tbody>
+      </table>
+      <h3>Profit &amp; margin</h3>
+      <pre><code>net profit = sale price − ( purchase price in EUR + shipping + customs )
+margin %   = net profit ÷ sale price × 100</code></pre>
+      <p class="muted">Missing costs count as zero. Net profit is recalculated and stored whenever an item becomes SOLD or its sale‑related figures change. <strong>Inventory value</strong> (a dashboard KPI) is the total EUR purchase cost of everything not yet sold — i.e. capital currently tied up.</p>
+    </section>
+
+    <!-- AUTOMATION -->
+    <section id="automation">
+      <h2><span class="ic">🤖</span> Automation schedule</h2>
+      <p class="desc">Background jobs run only in LIVE mode. In DEMO they're disabled (so seeded stock isn't repeatedly "sold") — use the manual triggers in Settings instead.</p>
+      <table>
+        <thead><tr><th>Job</th><th>When</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td>Vinted wardrobe scrape</td><td>Daily <strong>06:00</strong> <span class="tag">CRON_TZ</span></td><td>Diffs your wardrobe to detect &amp; record sales.</td></tr>
+          <tr><td>Wise sync</td><td>Every <strong>6 hours</strong></td><td>Imports &amp; categorises new outgoing payments.</td></tr>
+          <tr><td>Aging check</td><td>Daily <strong>08:00</strong></td><td>Emails an alert if any SOURCED item is &gt; 14 days old.</td></tr>
+        </tbody>
+      </table>
+      <div class="note"><span class="t">Timezone</span> — cron fires in the server's timezone. Hosts like Railway run in UTC, so set <code>CRON_TZ</code> to your IANA zone (e.g. <code>Europe/Amsterdam</code>) to make "06:00" mean your local 6&nbsp;AM.</div>
+    </section>
+
+    <!-- SECURITY -->
+    <section id="security">
+      <h2><span class="ic">🛡️</span> Security</h2>
+      <ul class="clean">
+        <li><strong>Single‑password gate</strong> on the whole API (only <code>/api/health</code> and login are public).</li>
+        <li><strong>Session cookies</strong>: <code>httpOnly</code>, <code>sameSite: strict</code>, and <code>secure</code> in production; 7‑day lifetime.</li>
+        <li><strong>Rate limiting</strong>: 100 requests per 15 minutes per IP on <code>/api</code> (returns <code>429</code> beyond that).</li>
+        <li><strong>Helmet</strong> security headers, <strong>gzip</strong> compression, and input validation on writes.</li>
+        <li>Secrets are read from environment variables only — never hard‑coded or committed.</li>
+      </ul>
+    </section>
+
+    <!-- DEPLOY -->
+    <section id="deploy">
+      <h2><span class="ic">🚀</span> Modes &amp; deployment</h2>
+      <p class="desc">DEMO runs anywhere with no setup. LIVE runs on Railway (app) + a PostgreSQL database, and is enabled with environment variables.</p>
+      <h3>Run DEMO locally</h3>
+      <pre><code># backend
+cd backend
+npm install
+npm run dev          # API on http://localhost:3001
+
+# frontend (second terminal)
+cd frontend
+npm install
+npm run dev          # UI on http://localhost:5173  (login: demo1234)</code></pre>
+      <h3>Key environment variables</h3>
+      <table>
+        <thead><tr><th>Variable</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>APP_MODE</code></td><td><code>DEMO</code> or <code>LIVE</code></td></tr>
+          <tr><td><code>DATABASE_URL</code></td><td>PostgreSQL connection string</td></tr>
+          <tr><td><code>DASHBOARD_PASSWORD</code></td><td>Login password</td></tr>
+          <tr><td><code>SESSION_SECRET</code></td><td>Signs session cookies</td></tr>
+          <tr><td><code>ANTHROPIC_API_KEY</code></td><td>Claude AI insights</td></tr>
+          <tr><td><code>WISE_API_KEY</code> / <code>WISE_PROFILE_ID</code></td><td>Expense sync</td></tr>
+          <tr><td><code>VINTED_DOMAIN</code> / <code>VINTED_USER_ID</code> / <code>VINTED_COOKIE</code></td><td>Wardrobe scraper access</td></tr>
+          <tr><td><code>CRON_TZ</code></td><td>Timezone for scheduled jobs</td></tr>
+          <tr><td><code>GOOGLE_CLIENT_ID</code> / <code>GOOGLE_CLIENT_SECRET</code></td><td>Gmail fallback (optional)</td></tr>
+        </tbody>
+      </table>
+      <p class="muted"><code>GET /api/health</code> returns <code>{ status, mode, timestamp }</code> — a quick way to confirm a deploy is up and which mode it's in.</p>
+    </section>
+
+    <!-- API -->
+    <section id="api">
+      <h2><span class="ic">🔌</span> API reference</h2>
+      <p class="desc">All routes are under <code>/api</code> and require a session except <code>/api/health</code> and login.</p>
+      <table>
+        <thead><tr><th>Method &amp; path</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>GET /api/health</code></td><td>Status + mode (public)</td></tr>
+          <tr><td><code>POST /api/auth/login</code> · <code>logout</code></td><td>Password login / logout</td></tr>
+          <tr><td><code>GET /api/items</code></td><td>List items (filter by <code>status</code>, <code>runnerId</code>, date, paginated)</td></tr>
+          <tr><td><code>POST /api/items</code></td><td>Create item (multipart, optional photo)</td></tr>
+          <tr><td><code>GET /api/items/:id</code> · <code>PATCH</code> · <code>DELETE</code></td><td>Read / edit / soft‑delete an item</td></tr>
+          <tr><td><code>GET /api/items/stats</code></td><td>Dashboard KPI figures</td></tr>
+          <tr><td><code>GET /api/items/analytics</code></td><td>Profit trends + brand/runner breakdowns</td></tr>
+          <tr><td><code>GET /api/runners</code> · <code>POST</code> · <code>PATCH</code></td><td>Manage runners</td></tr>
+          <tr><td><code>GET /api/transactions</code> · <code>PATCH /:id</code></td><td>List / categorise / link Wise transactions</td></tr>
+          <tr><td><code>GET /api/sync/vinted</code> · <code>/vinted/status</code></td><td>Run / inspect the wardrobe scrape</td></tr>
+          <tr><td><code>GET /api/sync/wise</code> · <code>/gmail</code> · <code>/alerts</code></td><td>Manual sync &amp; alert triggers</td></tr>
+          <tr><td><code>GET /api/ai/forecast</code> · <code>pricing/:itemId</code> · <code>sourcing</code></td><td>Claude insights</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq">
+      <h2><span class="ic">🩺</span> Troubleshooting</h2>
+      <h3>The AI panels say "not enough data yet"</h3>
+      <p class="muted">You need at least 5 SOLD items before the pricing, sourcing and forecast features turn on.</p>
+      <h3>Nothing got marked sold overnight</h3>
+      <p class="muted">In LIVE the scrape runs at 06:00 in <code>CRON_TZ</code>. If the run found 0 listings it aborts on purpose (likely an expired <code>VINTED_COOKIE</code>) — refresh the cookie and trigger a manual sync from Settings.</p>
+      <h3>A sale was detected but not matched to an item</h3>
+      <p class="muted">Name similarity didn't clear the threshold (common when two bags share a brand/model). It's logged for manual review — just set that item to SOLD yourself.</p>
+      <h3>My profit looks off</h3>
+      <p class="muted">Net profit subtracts shipping and customs too. Make sure those costs are filled in (or linked from Wise). Currency is frozen at intake, so a later rate change won't retroactively adjust old items — by design.</p>
+      <h3>I'm getting 429 errors</h3>
+      <p class="muted">That's the rate limiter — 100 requests / 15 min per IP. Wait a moment and retry.</p>
+    </section>
+
+    <footer>
+      Vinted Brand Dashboard — operator guide. Generated to match the app as built (Sourced → In Transit → In Stock → Sold,
+      wardrobe‑diff sale detection, Wise expenses, Claude insights, and the Analytics page). Open this file in any browser; it needs no internet connection.
+    </footer>
+  </main>
+</div>
+</body>
+</html>
