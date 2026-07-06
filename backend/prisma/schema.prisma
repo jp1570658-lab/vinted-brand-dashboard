@@ -1,6 +1,7 @@
-// Vinted Brand Dashboard — Prisma schema
-// DEMO mode: SQLite (provider below). LIVE mode: change provider to "postgresql"
-// and point DATABASE_URL at Supabase (see DEPLOYMENT.md).
+// Vinted Brand Dashboard — Prisma schema (LIVE: PostgreSQL / Railway).
+// This is the source of truth. Local DEMO runs on SQLite via a derived schema:
+// `npm run db:demo` generates prisma/schema.demo.prisma (provider = sqlite),
+// pushes it, and seeds. Keep DATABASE_URL a file: URL locally, Postgres in LIVE.
 
 generator client {
   provider = "prisma-client-js"

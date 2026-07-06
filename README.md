@@ -19,8 +19,7 @@ automated Vinted sale detection (Gmail), expense tracking (Wise), and AI insight
 cd backend
 npm install
 cp .env.example .env            # defaults are DEMO-ready (password: demo1234)
-npx prisma migrate dev --name init
-npm run seed                    # 10 demo items + 3 runners
+npm run db:demo                 # SQLite schema + 10 demo items + 3 runners
 npm run dev                     # API on http://localhost:3001
 
 # 2. Frontend (in a second terminal)
@@ -34,6 +33,9 @@ Open http://localhost:5173 and log in with **demo1234**.
 ## Modes
 - **DEMO** (default): every external call (Gmail, Wise, Claude, email) is replaced
   with realistic mock data. SQLite database. The whole app is testable end-to-end.
+  `schema.prisma` is Postgres (for LIVE); `npm run db:demo` derives a SQLite copy
+  (`schema.demo.prisma`, git-ignored) and pushes it — Prisma can't switch provider
+  via env, so DEMO gets its own generated schema.
 - **LIVE**: real APIs. Set `APP_MODE=LIVE` and fill credentials. See
   [`DEPLOYMENT.md`](./DEPLOYMENT.md).
 
@@ -50,6 +52,7 @@ DEPLOYMENT.md Non-developer guide to going live on Railway + Supabase
 | Where | Command | Does |
 |---|---|---|
 | backend | `npm run dev` | Start API with hot reload |
+| backend | `npm run db:demo` | Build SQLite DEMO schema, push it, and seed |
 | backend | `npm run seed` | Reset DB to demo data |
 | backend | `npm run prisma:studio` | Browse the database |
 | backend | `npm run build` | Generate client, build frontend, compile API (prod) |

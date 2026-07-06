@@ -14,6 +14,8 @@ build/
 *.db
 *.db-journal
 backend/prisma/dev.db*
+# derived SQLite schema for DEMO (generated from schema.prisma by `npm run db:demo`)
+backend/prisma/schema.demo.prisma
 
 # uploads
 backend/uploads/*
