@@ -8,6 +8,7 @@ import { AIInsights } from '../components/AIInsights';
 import { Skeleton } from '../components/Skeleton';
 import { eur } from '../lib/format';
 import { soldNeedsCost } from '../lib/cost';
+import { isUnlinked } from '../lib/tx';
 import { useLayout } from '../hooks/useLayout';
 
 const TILES = [
@@ -24,16 +25,25 @@ export function Dashboard() {
   const { refreshKey, onMenu } = useLayout();
   const { stats, loading } = useStats();
 
-  // Reconciliation backlog: sold items with no recorded cost (profit overstated).
+  // Attention signals: sold items with no recorded cost (profit overstated) and
+  // payments not yet linked to an item.
   const [needsCost, setNeedsCost] = useState(0);
+  const [unlinked, setUnlinked] = useState(0);
   useEffect(() => {
-    api.items
-      .list({ status: 'SOLD', limit: 200 })
-      .then((res) => setNeedsCost(res.data.filter(soldNeedsCost).length))
-      .catch(() => setNeedsCost(0));
+    Promise.all([api.items.list({ status: 'SOLD', limit: 200 }), api.transactions.list({ limit: 200 })])
+      .then(([sold, txns]) => {
+        setNeedsCost(sold.data.filter(soldNeedsCost).length);
+        setUnlinked(txns.data.filter(isUnlinked).length);
+      })
+      .catch(() => {
+        setNeedsCost(0);
+        setUnlinked(0);
+      });
   }, [refreshKey]);
 
   const counts = stats?.countByStatus;
+  // Per-tile backlog badges.
+  const badges: Record<string, number> = { '/reconcile': needsCost, '/transactions': unlinked };
 
   return (
     <>
@@ -71,24 +81,29 @@ export function Dashboard() {
           </div>
         )}
 
-        {/* Needs attention — reconciliation backlog */}
-        {needsCost > 0 && (
-          <Link
-            to="/reconcile"
-            className="flex items-center gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 transition hover:border-amber-500/60"
-          >
-            <span className="text-2xl">⚖️</span>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold text-amber-200">Needs attention</div>
-              <div className="text-xs text-amber-300/80">
-                {needsCost} sold {needsCost === 1 ? 'item is' : 'items are'} missing cost — profit
-                &amp; margin are overstated.
-              </div>
+        {/* Needs attention — reconciliation & linking backlog */}
+        {(needsCost > 0 || unlinked > 0) && (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
+            <div className="mb-2 px-1 text-sm font-semibold text-amber-200">Needs attention</div>
+            <div className="space-y-1.5">
+              {needsCost > 0 && (
+                <AttentionRow
+                  to="/reconcile"
+                  icon="⚖️"
+                  text={`${needsCost} sold ${needsCost === 1 ? 'item is' : 'items are'} missing cost — profit & margin overstated`}
+                  cta="Reconcile →"
+                />
+              )}
+              {unlinked > 0 && (
+                <AttentionRow
+                  to="/transactions"
+                  icon="🧾"
+                  text={`${unlinked} ${unlinked === 1 ? "payment isn’t" : "payments aren’t"} linked to an item`}
+                  cta="Link →"
+                />
+              )}
             </div>
-            <span className="shrink-0 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-200">
-              Reconcile →
-            </span>
-          </Link>
+          </div>
         )}
 
         <AIInsights />
@@ -103,12 +118,9 @@ export function Dashboard() {
                 to={t.to}
                 className="relative flex flex-col items-center gap-1 rounded-xl border border-edge bg-card p-4 text-center text-xs text-neutral-300 transition hover:border-gold/50 hover:text-gold"
               >
-                {t.to === '/reconcile' && needsCost > 0 && (
-                  <span
-                    className="absolute right-1.5 top-1.5 min-w-[18px] rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-black"
-                    title={`${needsCost} sold items missing cost`}
-                  >
-                    {needsCost}
+                {badges[t.to] > 0 && (
+                  <span className="absolute right-1.5 top-1.5 min-w-[18px] rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-black">
+                    {badges[t.to]}
                   </span>
                 )}
                 <span className="text-2xl">{t.icon}</span>
@@ -119,5 +131,30 @@ export function Dashboard() {
         </div>
       </div>
     </>
+  );
+}
+
+function AttentionRow({
+  to,
+  icon,
+  text,
+  cta,
+}: {
+  to: string;
+  icon: string;
+  text: string;
+  cta: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="flex items-center gap-3 rounded-lg border border-amber-500/20 bg-black/10 px-3 py-2 transition hover:border-amber-500/50"
+    >
+      <span className="text-xl">{icon}</span>
+      <span className="min-w-0 flex-1 text-xs text-amber-300/90">{text}</span>
+      <span className="shrink-0 rounded-lg border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-xs font-medium text-amber-200">
+        {cta}
+      </span>
+    </Link>
   );
 }

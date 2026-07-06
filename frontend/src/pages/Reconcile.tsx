@@ -8,15 +8,11 @@ import { ItemImage } from '../components/ItemImage';
 import { FixCostModal } from '../components/FixCostModal';
 import { eur, money, shortDate } from '../lib/format';
 import { soldNeedsCost, profitOf } from '../lib/cost';
+import { isUnlinked } from '../lib/tx';
 import { suggestTransactions, runnerNamesOf, SUGGEST_THRESHOLD } from '../lib/matchItem';
 import { useLayout } from '../hooks/useLayout';
 
 type ApplyAs = 'PURCHASE' | 'SHIPPING';
-
-/** A transaction is available to reconcile only if it isn't already linked/split. */
-function isUnlinked(t: WiseTransaction): boolean {
-  return !t.item && !(t.splits && t.splits.length > 0);
-}
 
 export function Reconcile() {
   const { refreshKey, bumpRefresh, onMenu } = useLayout();

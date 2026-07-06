@@ -8,6 +8,7 @@ import { LinkItemModal } from '../components/LinkItemModal';
 import { SplitItemModal } from '../components/SplitItemModal';
 import { eur, money, shortDate } from '../lib/format';
 import { soldNeedsCost } from '../lib/cost';
+import { isUnlinked } from '../lib/tx';
 import { suggestItems, runnerNamesOf, SUGGEST_THRESHOLD, type Suggestion } from '../lib/matchItem';
 import { useLayout } from '../hooks/useLayout';
 
@@ -78,7 +79,7 @@ export function Transactions() {
     let other = 0;
     for (const t of txns) {
       const eurAmt = t.amountEur ?? t.amount;
-      const linked = Boolean(t.item) || Boolean(t.splits?.length);
+      const linked = !isUnlinked(t);
       total += eurAmt;
       if (isThisMonth(t.date)) month += eurAmt;
       if (!linked) unlinked += 1;
@@ -92,7 +93,7 @@ export function Transactions() {
     const names = runnerNamesOf(items);
     const map = new Map<string, Suggestion>();
     for (const t of txns) {
-      if (t.item || t.splits?.length) continue;
+      if (!isUnlinked(t)) continue;
       const top = suggestItems(t, items, names)[0];
       if (top && top.score >= SUGGEST_THRESHOLD) map.set(t.id, top);
     }
@@ -118,7 +119,7 @@ export function Transactions() {
     const q = search.trim().toLowerCase();
     return txns.filter((t) => {
       if (reconcileOnly && !reconcileTargets.has(t.id)) return false;
-      if (unlinkedOnly && (t.item || t.splits?.length)) return false;
+      if (unlinkedOnly && !isUnlinked(t)) return false;
       if (catFilter && (t.category || 'OTHER') !== catFilter) return false;
       if (q && !t.description.toLowerCase().includes(q)) return false;
       return true;

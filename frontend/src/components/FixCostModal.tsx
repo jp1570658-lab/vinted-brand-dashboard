@@ -3,6 +3,7 @@ import type { Item, WiseTransaction } from '../api/types';
 import { api } from '../api/endpoints';
 import { eur, money, pct, shortDate } from '../lib/format';
 import { suggestTransactions, SUGGEST_THRESHOLD } from '../lib/matchItem';
+import { isUnlinked } from '../lib/tx';
 import { ItemImage } from './ItemImage';
 
 interface Props {
@@ -12,11 +13,6 @@ interface Props {
 }
 
 type ApplyAs = 'PURCHASE' | 'SHIPPING';
-
-/** A transaction is available to reconcile only if it isn't already linked/split. */
-function isUnlinked(t: WiseTransaction): boolean {
-  return !t.item && !(t.splits && t.splits.length > 0);
-}
 
 /**
  * Quick "fix cost" shortcut for a sold item that has no recorded cost.
