@@ -22,55 +22,87 @@ export interface Suggestion {
   reason: string;
 }
 
+export interface TxSuggestion {
+  tx: WiseTransaction;
+  score: number;
+  reason: string;
+}
+
 // A name or runner signal must be present for a suggestion to surface — date
 // proximity alone is unreliable (imported items share one sourced timestamp).
 export const SUGGEST_THRESHOLD = 4;
 
 /**
- * Rank items by how likely they match a transaction. Pure heuristic, runs
- * client-side over already-loaded data. Returns all items with score > 0,
- * best first. Use SUGGEST_THRESHOLD to decide what's confident enough to
- * surface as a one-tap suggestion.
+ * Core heuristic: how strongly a transaction and item look like a match, plus a
+ * short human reason. Shared by both directions (tx→item, item→tx) so ranking
+ * stays consistent. Pure, runs client-side over already-loaded data.
+ */
+function scorePair(
+  tx: WiseTransaction,
+  item: Item,
+  runnerNames: string[],
+): { score: number; reason: string } {
+  const desc = (tx.description ?? '').toLowerCase();
+  const descTokens = new Set(tokenize(tx.description));
+  const txTime = new Date(tx.date).getTime();
+  const mentionedRunner = runnerNames.find((n) => n && desc.includes(n.toLowerCase()));
+
+  let score = 0;
+  let reason = '';
+
+  // Brand / model / colour tokens appearing in the description.
+  const itemTokens = tokenize(`${item.brand} ${item.model} ${item.color ?? ''}`);
+  let overlap = 0;
+  for (const t of itemTokens) if (descTokens.has(t)) overlap += 1;
+  if (item.brand && desc.includes(item.brand.toLowerCase())) overlap += 1;
+  if (overlap > 0) {
+    score += overlap * 5;
+    reason = 'name match';
+  }
+
+  // The transaction names this item's runner.
+  if (mentionedRunner && item.runner?.name?.toLowerCase() === mentionedRunner.toLowerCase()) {
+    score += 4;
+    if (!reason) reason = `runner ${item.runner?.name}`;
+  }
+
+  // Date proximity — tiebreaker only (never qualifies on its own).
+  const days = Math.abs((txTime - new Date(item.sourcedAt).getTime()) / 86_400_000);
+  if (days <= 2) score += 1;
+
+  return { score, reason };
+}
+
+/**
+ * Rank items by how likely they match a transaction. Returns all items with
+ * score > 0, best first. Use SUGGEST_THRESHOLD to decide what's confident
+ * enough to surface as a one-tap suggestion.
  */
 export function suggestItems(
   tx: WiseTransaction,
   items: Item[],
   runnerNames: string[] = [],
 ): Suggestion[] {
-  const desc = (tx.description ?? '').toLowerCase();
-  const descTokens = new Set(tokenize(tx.description));
-  const txTime = new Date(tx.date).getTime();
+  return items
+    .map((item) => ({ item, ...scorePair(tx, item, runnerNames) }))
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score);
+}
 
-  const mentionedRunner = runnerNames.find((n) => n && desc.includes(n.toLowerCase()));
-
-  const scored: Suggestion[] = items.map((item) => {
-    let score = 0;
-    let reason = '';
-
-    // Brand / model / colour tokens appearing in the description.
-    const itemTokens = tokenize(`${item.brand} ${item.model} ${item.color ?? ''}`);
-    let overlap = 0;
-    for (const t of itemTokens) if (descTokens.has(t)) overlap += 1;
-    if (item.brand && desc.includes(item.brand.toLowerCase())) overlap += 1;
-    if (overlap > 0) {
-      score += overlap * 5;
-      reason = 'name match';
-    }
-
-    // The transaction names this item's runner.
-    if (mentionedRunner && item.runner?.name?.toLowerCase() === mentionedRunner.toLowerCase()) {
-      score += 4;
-      if (!reason) reason = `runner ${item.runner?.name}`;
-    }
-
-    // Date proximity — tiebreaker only (never qualifies on its own).
-    const days = Math.abs((txTime - new Date(item.sourcedAt).getTime()) / 86_400_000);
-    if (days <= 2) score += 1;
-
-    return { item, score, reason };
-  });
-
-  return scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score);
+/**
+ * Reverse of suggestItems: rank transactions by how likely each represents a
+ * cost of the given item. Powers reconciling a sold item's cost from real Wise
+ * spend. Returns all transactions with score > 0, best first.
+ */
+export function suggestTransactions(
+  item: Item,
+  txns: WiseTransaction[],
+  runnerNames: string[] = [],
+): TxSuggestion[] {
+  return txns
+    .map((tx) => ({ tx, ...scorePair(tx, item, runnerNames) }))
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score);
 }
 
 /** Unique runner names present on a set of items. */
