@@ -12,6 +12,7 @@ const NAV = [
   { to: '/sold', label: 'Sold', icon: '💰' },
   { to: '/analytics', label: 'Analytics', icon: '📈' },
   { to: '/transactions', label: 'Transactions', icon: '🧾' },
+  { to: '/reconcile', label: 'Reconcile', icon: '⚖️' },
   { to: '/settings', label: 'Settings', icon: '⚙️' },
 ];
 
