@@ -51,13 +51,14 @@ export function Dashboard() {
       <div className="space-y-5 p-4">
         {/* KPI row */}
         {loading ? (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-            {Array.from({ length: 5 }).map((_, i) => (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+            {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-24 w-full rounded-xl" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+            <KPICard label="Revenue (Week)" value={eur(stats?.revenueWeek)} />
             <KPICard label="Revenue (Month)" value={eur(stats?.revenueMonth)} accent />
             <KPICard label="Revenue (Year)" value={eur(stats?.revenueYear)} />
             <KPICard label="Net Profit (Month)" value={eur(stats?.netProfitMonth)} accent />
