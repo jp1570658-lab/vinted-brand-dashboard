@@ -5,6 +5,7 @@ import type {
   ItemStatus,
   Paged,
   Runner,
+  RunnerBalance,
   Stats,
   WiseTransaction,
   HealthInfo,
@@ -39,6 +40,7 @@ export const api = {
 
   runners: {
     list: () => apiGet<{ data: Runner[] }>('/api/runners'),
+    ledger: () => apiGet<{ data: RunnerBalance[] }>('/api/runners/ledger'),
     create: (data: { name: string; location: string; contact?: string }) =>
       apiSend<Runner>('/api/runners', 'POST', data),
     update: (id: string, data: Partial<Runner>) =>
@@ -59,6 +61,7 @@ export const api = {
       data: {
         category?: string | null;
         itemId?: string | null;
+        runnerId?: string | null;
         applyAs?: 'PURCHASE' | 'SHIPPING';
       },
     ) => apiSend<WiseTransaction>(`/api/transactions/${id}`, 'PATCH', data),
@@ -79,6 +82,7 @@ export const api = {
       source: string;
       category: string;
       fee?: number | null;
+      runnerId?: string | null;
     }) => apiSend<WiseTransaction>('/api/transactions', 'POST', data),
     remove: (id: string) => apiSend<{ ok: true }>(`/api/transactions/${id}`, 'DELETE'),
   },

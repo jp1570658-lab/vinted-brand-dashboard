@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Item, WiseTransaction } from '../api/types';
+import type { Item, Runner, WiseTransaction } from '../api/types';
 import { api } from '../api/endpoints';
 import { TopNav } from '../components/TopNav';
 import { EmptyState } from '../components/EmptyState';
@@ -33,6 +33,8 @@ export function Transactions() {
   const { refreshKey, onMenu } = useLayout();
   const [txns, setTxns] = useState<WiseTransaction[]>([]);
   const [items, setItems] = useState<Item[]>([]);
+  const [runners, setRunners] = useState<Runner[]>([]);
+  const [editingRunner, setEditingRunner] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // UI state
@@ -49,10 +51,15 @@ export function Transactions() {
 
   const load = useCallback(() => {
     setLoading(true);
-    Promise.all([api.transactions.list({ limit: 200 }), api.items.list({ limit: 200 })])
-      .then(([t, i]) => {
+    Promise.all([
+      api.transactions.list({ limit: 200 }),
+      api.items.list({ limit: 200 }),
+      api.runners.list(),
+    ])
+      .then(([t, i, r]) => {
         setTxns(t.data);
         setItems(i.data);
+        setRunners(r.data);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -151,6 +158,19 @@ export function Transactions() {
   async function unlink(id: string) {
     setTxns((prev) => prev.map((t) => (t.id === id ? { ...t, item: null, itemId: null } : t)));
     await api.transactions.update(id, { itemId: null });
+  }
+
+  async function changeRunner(id: string, runnerId: string) {
+    setEditingRunner(null);
+    const runner = runners.find((r) => r.id === runnerId) ?? null;
+    setTxns((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? { ...t, runnerId: runner?.id ?? null, runner: runner ? { id: runner.id, name: runner.name } : null }
+          : t,
+      ),
+    );
+    await api.transactions.update(id, { runnerId: runner?.id ?? null });
   }
 
   async function remove(id: string) {
@@ -343,6 +363,41 @@ export function Transactions() {
                           <span className="rounded-full border border-edge px-2 py-0.5 text-[10px] text-neutral-400">
                             {sourceLabel(t.source)}
                           </span>
+                        )}
+                        {editingRunner === t.id ? (
+                          <select
+                            autoFocus
+                            defaultValue={t.runnerId ?? ''}
+                            onBlur={() => setEditingRunner(null)}
+                            onChange={(e) => changeRunner(t.id, e.target.value)}
+                            className="input py-0.5 text-xs"
+                          >
+                            <option value="">— no runner —</option>
+                            {runners.map((r) => (
+                              <option key={r.id} value={r.id}>
+                                {r.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : t.runner ? (
+                          <button
+                            onClick={() => setEditingRunner(t.id)}
+                            title="Change runner (runner balance ledger)"
+                            className="rounded-full border border-status-sourced/40 px-2 py-0.5 text-[10px] text-status-sourced hover:brightness-125"
+                          >
+                            🏃 {t.runner.name}
+                          </button>
+                        ) : (
+                          runners.length > 0 &&
+                          (t.category === 'RUNNER_PAYMENT' || t.category === 'STOCK_PURCHASE') && (
+                            <button
+                              onClick={() => setEditingRunner(t.id)}
+                              title="Assign to a runner for the balance ledger"
+                              className="rounded-full border border-dashed border-edge px-2 py-0.5 text-[10px] text-neutral-500 hover:text-neutral-300"
+                            >
+                              🏃 assign runner
+                            </button>
+                          )
                         )}
                         {manual &&
                           (confirmDelete === t.id ? (

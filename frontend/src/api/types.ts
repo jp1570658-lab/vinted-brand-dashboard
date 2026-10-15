@@ -56,6 +56,19 @@ export interface TxSplit {
   item?: { id: string; brand: string; model: string } | null;
 }
 
+/** Money sent to a runner vs bags they've shipped (GET /api/runners/ledger). */
+export interface RunnerBalance {
+  runnerId: string;
+  name: string;
+  location: string;
+  fundsSent: number;
+  itemsWaiting: number;
+  itemsShipped: number;
+  valueWaiting: number;
+  valueShipped: number;
+  outstanding: number;
+}
+
 export interface WiseTransaction {
   id: string;
   wiseId: string;
@@ -67,6 +80,8 @@ export interface WiseTransaction {
   category?: string | null;
   source?: string; // WISE | WESTERN_UNION | BANK_TRANSFER | CASH | CARD | PAYPAL | OTHER
   fee?: number | null; // EUR transfer fee
+  runnerId?: string | null;
+  runner?: { id: string; name: string } | null;
   itemId?: string | null;
   item?: { id: string; brand: string; model: string } | null;
   splits?: TxSplit[];

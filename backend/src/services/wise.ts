@@ -1,3 +1,4 @@
+import { matchRunnerId } from '../lib/runnerLedger';
 import { prisma } from '../lib/prisma';
 import { isDemo } from './mode';
 import { toEur } from './currency';
@@ -77,6 +78,7 @@ export async function runWiseSync(): Promise<WiseSyncResult> {
         amountEur: toEur(t.amount, t.currency),
         description: t.description,
         category,
+        runnerId: await matchRunnerId(t.description),
       },
     });
     imported++;

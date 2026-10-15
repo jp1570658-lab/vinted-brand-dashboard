@@ -8,6 +8,7 @@ import { handleValidation } from '../middleware/validate';
 import { calcNetProfit } from '../lib/profit';
 import { EXPENSE_CATEGORIES, EXPENSE_SOURCES, txTotalEur } from '../lib/expenses';
 import { toEur, SUPPORTED_CURRENCIES } from '../services/currency';
+import { matchRunnerId } from '../lib/runnerLedger';
 
 export const transactionsRouter = Router();
 
@@ -17,6 +18,7 @@ type ApplyMode = (typeof APPLY_MODES)[number];
 
 const TX_INCLUDE = {
   item: { select: { id: true, brand: true, model: true } },
+  runner: { select: { id: true, name: true } },
   splits: {
     include: { item: { select: { id: true, brand: true, model: true } } },
     orderBy: { amount: 'desc' as const },
@@ -114,6 +116,14 @@ transactionsRouter.post(
     const b = req.body;
     const amount = Number(b.amount);
     const currency = String(b.currency ?? 'EUR').toUpperCase();
+    let runnerId: string | null = null;
+    if (b.runnerId) {
+      const runner = await prisma.runner.findUnique({ where: { id: String(b.runnerId) } });
+      if (!runner) throw new HttpError(400, 'Runner not found');
+      runnerId = runner.id;
+    } else {
+      runnerId = await matchRunnerId(String(b.description));
+    }
     const tx = await prisma.wiseTransaction.create({
       data: {
         // Manual rows reuse the unique `wiseId` key with a source-prefixed id.
@@ -126,6 +136,7 @@ transactionsRouter.post(
         category: b.category ?? 'OTHER',
         source: b.source,
         fee: b.fee != null && b.fee !== '' ? Number(b.fee) : null,
+        runnerId,
       },
       include: TX_INCLUDE,
     });
@@ -169,6 +180,15 @@ transactionsRouter.patch(
         throw new HttpError(400, `Category must be one of: ${EXPENSE_CATEGORIES.join(', ')}`);
       }
       data.category = req.body.category;
+    }
+    if (req.body.runnerId !== undefined) {
+      if (req.body.runnerId === null) {
+        data.runner = { disconnect: true };
+      } else {
+        const runner = await prisma.runner.findUnique({ where: { id: String(req.body.runnerId) } });
+        if (!runner) throw new HttpError(400, 'Runner not found');
+        data.runner = { connect: { id: runner.id } };
+      }
     }
     if (req.body.itemId !== undefined) {
       if (req.body.itemId === null) {

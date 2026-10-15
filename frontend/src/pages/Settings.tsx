@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Runner } from '../api/types';
+import type { Runner, RunnerBalance } from '../api/types';
+import { eur } from '../lib/format';
 import { api } from '../api/endpoints';
 import { TopNav } from '../components/TopNav';
 import { useAuth } from '../hooks/useAuth';
@@ -9,6 +10,7 @@ export function Settings() {
   const { mode } = useAuth();
   const { onMenu, bumpRefresh } = useLayout();
   const [runners, setRunners] = useState<Runner[]>([]);
+  const [ledger, setLedger] = useState<Map<string, RunnerBalance>>(new Map());
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [gmailMsg, setGmailMsg] = useState<string | null>(null);
@@ -18,6 +20,10 @@ export function Settings() {
 
   const loadRunners = useCallback(() => {
     api.runners.list().then((r) => setRunners(r.data));
+    api.runners
+      .ledger()
+      .then((l) => setLedger(new Map(l.data.map((b) => [b.runnerId, b]))))
+      .catch(() => setLedger(new Map()));
   }, []);
 
   useEffect(() => {
@@ -112,15 +118,43 @@ export function Settings() {
         {/* Runners */}
         <Section title="Runners">
           <ul className="mb-3 divide-y divide-edge/50 rounded-lg border border-edge">
-            {runners.map((r) => (
-              <li key={r.id} className="flex items-center justify-between p-3 text-sm">
-                <div>
-                  <div className="font-medium text-neutral-100">{r.name}</div>
-                  <div className="text-xs text-neutral-500">{r.location}</div>
-                </div>
-                <span className="text-xs text-neutral-500">{r._count?.items ?? 0} items</span>
-              </li>
-            ))}
+            {runners.map((r) => {
+              const b = ledger.get(r.id);
+              return (
+                <li key={r.id} className="p-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium text-neutral-100">{r.name}</div>
+                      <div className="text-xs text-neutral-500">{r.location}</div>
+                    </div>
+                    <span className="text-xs text-neutral-500">{r._count?.items ?? 0} items</span>
+                  </div>
+                  {b && (
+                    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <LedgerCell label="Funds sent" value={eur(b.fundsSent)} />
+                      <LedgerCell
+                        label="Waiting abroad"
+                        value={`${b.itemsWaiting} · ${eur(b.valueWaiting)}`}
+                      />
+                      <LedgerCell
+                        label="Shipped / received"
+                        value={`${b.itemsShipped} · ${eur(b.valueShipped)}`}
+                      />
+                      <LedgerCell
+                        label="Outstanding"
+                        value={eur(b.outstanding)}
+                        tone={b.outstanding > 0.005 ? 'warn' : b.outstanding < -0.005 ? 'neg' : undefined}
+                        hint={
+                          b.outstanding < -0.005
+                            ? 'Bag costs exceed money logged — a payment may be missing or unlinked'
+                            : 'Money sent for bags not yet shipped or confirmed'
+                        }
+                      />
+                    </div>
+                  )}
+                </li>
+              );
+            })}
             {runners.length === 0 && <li className="p-3 text-sm text-neutral-500">No runners yet.</li>}
           </ul>
           <form onSubmit={addRunner} className="flex flex-wrap gap-2">
@@ -139,6 +173,31 @@ export function Settings() {
         </Section>
       </div>
     </>
+  );
+}
+
+function LedgerCell({
+  label,
+  value,
+  tone,
+  hint,
+}: {
+  label: string;
+  value: string;
+  tone?: 'warn' | 'neg';
+  hint?: string;
+}) {
+  return (
+    <div className="rounded-lg bg-black/30 p-2" title={hint}>
+      <div className="text-[10px] uppercase tracking-wide text-neutral-500">{label}</div>
+      <div
+        className={`text-sm font-semibold ${
+          tone === 'warn' ? 'text-amber-300' : tone === 'neg' ? 'text-red-400' : 'text-neutral-100'
+        }`}
+      >
+        {value}
+      </div>
+    </div>
   );
 }
 

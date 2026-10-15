@@ -70,6 +70,7 @@ model Runner {
   location  String
   contact   String?
   items     Item[]
+  payments  WiseTransaction[]
   createdAt DateTime @default(now())
 }
 
@@ -84,6 +85,8 @@ model WiseTransaction {
   category    String?
   source      String             @default("WISE") // WISE | WESTERN_UNION | BANK_TRANSFER | CASH | CARD | PAYPAL | OTHER
   fee         Float? // transfer fee in EUR (e.g. Western Union), part of the expense's total cost
+  runnerId    String? // sourcing contact this money went to (runner balance ledger)
+  runner      Runner?            @relation(fields: [runnerId], references: [id])
   itemId      String?
   item        Item?              @relation(fields: [itemId], references: [id])
   splits      TransactionSplit[]

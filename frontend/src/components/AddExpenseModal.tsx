@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { Runner } from '../api/types';
 import { api } from '../api/endpoints';
 import { eur } from '../lib/format';
 import { CATEGORIES, SOURCES } from '../lib/expenses';
@@ -25,8 +26,17 @@ export function AddExpenseModal({ onClose, onCreated }: Props) {
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState<string>('EUR');
   const [fee, setFee] = useState('');
+  const [runnerId, setRunnerId] = useState(''); // '' = match by name in the description
+  const [runners, setRunners] = useState<Runner[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.runners
+      .list()
+      .then((r) => setRunners(r.data))
+      .catch(() => setRunners([]));
+  }, []);
 
   const amountNum = Number(amount);
   const feeNum = Number(fee) || 0;
@@ -46,6 +56,7 @@ export function AddExpenseModal({ onClose, onCreated }: Props) {
         source,
         category,
         fee: fee.trim() !== '' ? feeNum : null,
+        runnerId: runnerId || null,
       });
       onCreated();
       onClose();
@@ -73,6 +84,19 @@ export function AddExpenseModal({ onClose, onCreated }: Props) {
           <Field label="Category">
             <Chips options={CATEGORIES} value={category} onChange={setCategory} />
           </Field>
+
+          {runners.length > 0 && (category === 'STOCK_PURCHASE' || category === 'RUNNER_PAYMENT') && (
+            <Field label="Runner (for the balance ledger)">
+              <select value={runnerId} onChange={(e) => setRunnerId(e.target.value)} className="input w-full">
+                <option value="">Auto — match the runner's name in the description</option>
+                {runners.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name} · {r.location}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
 
           <Field label="Description">
             <input

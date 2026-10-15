@@ -3,6 +3,7 @@ import { body, param } from 'express-validator';
 import { prisma } from '../lib/prisma';
 import { asyncHandler, HttpError } from '../middleware/errorHandler';
 import { handleValidation } from '../middleware/validate';
+import { runnerLedger } from '../lib/runnerLedger';
 
 export const runnersRouter = Router();
 
@@ -15,6 +16,14 @@ runnersRouter.get(
       include: { _count: { select: { items: true } } },
     });
     res.json({ data: runners });
+  }),
+);
+
+// GET /api/runners/ledger — money sent vs bags shipped, per runner.
+runnersRouter.get(
+  '/ledger',
+  asyncHandler(async (_req, res) => {
+    res.json({ data: await runnerLedger() });
   }),
 );
 
