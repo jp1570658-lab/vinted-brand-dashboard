@@ -35,15 +35,28 @@ export function createApp(): Express {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // 3. Rate limit: 100 requests / 15 min per IP, on the API.
+  // 3. Rate limits (per IP, 15 min windows). One pass through every page costs
+  // ~50 API calls, so the general cap is 1000 to keep normal use unblocked;
+  // brute-force protection lives on the login limiter (failed attempts only).
   app.use(
     '/api',
     rateLimit({
       windowMs: 15 * 60 * 1000,
-      max: 100,
+      max: 1000,
       standardHeaders: true,
       legacyHeaders: false,
       message: { error: 'Too many requests, please try again later.' },
+    }),
+  );
+  app.use(
+    '/api/auth/login',
+    rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 10,
+      skipSuccessfulRequests: true,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { error: 'Too many failed login attempts, please try again in 15 minutes.' },
     }),
   );
 
