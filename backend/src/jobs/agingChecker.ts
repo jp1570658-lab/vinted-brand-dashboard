@@ -6,7 +6,9 @@ export function startAgingChecker() {
   cron.schedule('0 8 * * *', async () => {
     try {
       const r = await sendAgingAlert();
-      console.log(`[agingChecker] ${r.sent ? `alerted on ${r.count} item(s)` : 'no aged items'}`);
+      if (r.sent) console.log(`[agingChecker] alerted on ${r.count} item(s)`);
+      else if (r.skipped) console.warn(`[agingChecker] ${r.count} item(s) flagged, email skipped (${r.skipped})`);
+      else console.log('[agingChecker] no aged items');
     } catch (e) {
       console.error('[agingChecker] error:', (e as Error).message);
     }
