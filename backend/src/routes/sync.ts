@@ -4,6 +4,7 @@ import { runGmailSync, lastGmailSync } from '../services/gmail';
 import { runVintedSync, lastVintedSync, importWardrobe } from '../services/vinted';
 import { runWiseSync } from '../services/wise';
 import { sendAgingAlert, getFlaggedItems } from '../services/alerts';
+import { isDemo } from '../services/mode';
 
 export const syncRouter = Router();
 
@@ -19,6 +20,22 @@ syncRouter.get(
 syncRouter.get(
   '/gmail',
   asyncHandler(async (_req, res) => {
+    // LIVE without Gmail set up is a normal state, not a server error.
+    if (!isDemo()) {
+      if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+        return res.json({
+          ok: false,
+          pending: 'Gmail is not set up: add GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET (see DEPLOYMENT.md).',
+        });
+      }
+      const { isGmailConnected } = await import('../services/gmailLive');
+      if (!(await isGmailConnected())) {
+        return res.json({
+          ok: false,
+          pending: 'Gmail is not connected yet — open /api/auth/google once to authorize it.',
+        });
+      }
+    }
     const result = await runGmailSync();
     res.json({ ok: true, ...result });
   }),

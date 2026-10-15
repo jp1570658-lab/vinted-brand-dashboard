@@ -4,6 +4,7 @@ import { APP_MODE } from './services/mode';
 import { startVintedPoller } from './jobs/vintedPoller';
 import { startWisePoller } from './jobs/wisePoller';
 import { startAgingChecker } from './jobs/agingChecker';
+import { startGmailPoller } from './jobs/gmailPoller';
 
 const PORT = Number(process.env.PORT) || 3001;
 
@@ -18,4 +19,5 @@ app.listen(PORT, () => {
   startVintedPoller();
   startWisePoller();
   startAgingChecker();
+  startGmailPoller();
 });

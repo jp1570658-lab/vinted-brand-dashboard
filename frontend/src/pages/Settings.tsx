@@ -45,7 +45,10 @@ export function Settings() {
     setGmailMsg(null);
     try {
       const r = await api.sync.gmail();
-      setGmailMsg(r.pending || `Synced: ${r.salesFound ?? 0} sale(s) found.`);
+      setGmailMsg(
+        r.pending ||
+          `Synced: ${r.salesFound ?? 0} sale(s) found, ${r.matched ?? 0} matched, ${r.expensesCreated ?? 0} Western Union expense(s) imported.`,
+      );
       bumpRefresh();
     } catch (e: any) {
       setGmailMsg(e?.message || 'Sync failed');
@@ -92,7 +95,7 @@ export function Settings() {
         <Section title="Integrations">
           <div className="space-y-3">
             <SyncRow
-              label="Gmail — Vinted sale detection"
+              label="Gmail — Vinted / Depop / Vestiaire sales & Western Union receipts"
               busy={syncing === 'gmail'}
               onSync={syncGmail}
               message={gmailMsg}

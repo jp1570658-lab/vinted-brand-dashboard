@@ -148,15 +148,26 @@ To enable it, set these variables in Railway (Step 4) and `APP_MODE=LIVE`:
 
 ---
 
-## Optional — Gmail sale detection (fallback)
+## Optional — Gmail email detection (Depop, Vestiaire, Western Union, Vinted)
 
-The Gmail detector no longer runs automatically (the scraper replaced it), but the
-manual trigger is kept. To use it:
+Once Gmail is connected, the dashboard reads your inbox every 10 minutes and:
 
-1. In Google Cloud Console, add `https://YOUR-URL/api/auth/google/callback` to the
-   OAuth client's **Authorized redirect URIs**.
-2. Visit `https://YOUR-URL/api/auth/google` while logged in — approve access.
-3. Trigger a one-off sync anytime at `https://YOUR-URL/api/sync/gmail`.
+- marks bags **SOLD** from Depop "You made a sale!", Vestiaire Collective "Your item has sold"
+  and Vinted sale emails — with the platform and its fees filled in;
+- turns **Western Union** receipts into expenses (amount + transfer fee, linked to the runner
+  when the receiver's name matches) — ready to split across the bags in that batch.
+
+To switch it on:
+
+1. In Google Cloud Console → APIs & Services: enable the **Gmail API**, create an OAuth 2.0
+   client (type *Web application*) and add `https://YOUR-URL/api/auth/google/callback` to its
+   **Authorized redirect URIs**.
+2. In Railway, set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and
+   `GOOGLE_REDIRECT_URI=https://YOUR-URL/api/auth/google/callback`, then redeploy.
+3. Visit `https://YOUR-URL/api/auth/google` while logged in and approve access (one time).
+4. Settings → Gmail → **Sync now** to check it; after that it runs on its own.
+
+Until steps 1–3 are done, the Gmail row in Settings just says it is not set up — nothing breaks.
 
 ---
 

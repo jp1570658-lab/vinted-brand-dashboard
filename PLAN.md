@@ -98,6 +98,7 @@ Accounting exports (Dashboard Upgrade §4B, CSV for Belgian Excel):
 ## 4. INTEGRATION MAP
 
 - **Gmail (LIVE):** OAuth2 (`google-auth-library` + `googleapis`). Scopes: `gmail.readonly`, `gmail.send`. Routes `/api/auth/google` + `/callback`; refresh token → `GoogleToken`. Poller every 10 min: query `from:(noreply@vinted.fr OR noreply@vinted.com)`, parse "Vous avez vendu"/"You've sold", regex price `/€\s*([\d.,]+)/`, match IN_STOCK by Levenshtein ≥0.7 (FIFO on ties), set SOLD + `saleSource=AUTO_GMAIL`, else log `unmatched_sales.log`. Write `GmailSync`.
+  - **Upgrade (DECISIONS #28):** query widened to Vinted, Depop, Vestiaire Collective and Western Union (`GMAIL_QUERY`). Pure parsers in `lib/emailParsers.ts`: sales carry `channel` + `platformFee` into `matchAndSell`; WU receipts become `source=WESTERN_UNION` expenses (amount + fee, dedup `WU-<MTCN>`, runner by receiver name). Poller runs only when Google OAuth env is set and a token exists.
 - **Wise (LIVE):** Bearer `WISE_API_KEY`. `GET /v1/profiles` → profile id; poller every 6h `GET /v3/profiles/{id}/transfers?status=outgoing_payment_sent`; dedup `wiseId`; auto-categorize (DHL/UPS/Colissimo→SHIPPING, runner name→RUNNER_PAYMENT, >€200+"transfer"→STOCK_PURCHASE, else OTHER).
 - **Claude (LIVE):** `@anthropic-ai/sdk`, model `claude-haiku-4-5`. Three prompts (time-to-sell, sourcing ROI, forecast) per CLAUDE.md. JSON-only responses parsed defensively; empty-DB fallback message.
 
@@ -108,7 +109,7 @@ Accounting exports (Dashboard Upgrade §4B, CSV for Belgian Excel):
 | Real call | DEMO replacement |
 |---|---|
 | Database (Supabase PG) | SQLite file `backend/prisma/dev.db` |
-| Gmail sync | Hardcoded parsed sale → marks oldest IN_STOCK item SOLD |
+| Gmail sync | Sample emails through the real parsers: Vinted sale (oldest IN_STOCK), Depop sale with fees (next oldest), Western Union receipt €300 + €3.90 (fixed MTCN, imported once) |
 | Wise sync | Hardcoded list of 5 transactions (shipping, runner pay, stock purchase, etc.) |
 | Claude forecast | Hardcoded forecast JSON |
 | Claude pricing | Hardcoded { daysToSell, recommendedPrice, confidence, reasoning } |
