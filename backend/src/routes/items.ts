@@ -7,6 +7,7 @@ import { handleValidation } from '../middleware/validate';
 import { upload } from '../middleware/upload';
 import { toEur, SUPPORTED_CURRENCIES } from '../services/currency';
 import { calcNetProfit, calcMarginPct } from '../lib/profit';
+import { SALE_CHANNELS, PAYMENT_METHODS } from '../lib/channels';
 import { getDashboardStats } from '../lib/stats';
 import { getAnalytics } from '../lib/analytics';
 
@@ -181,6 +182,20 @@ itemsRouter.patch(
       const n = Number(b[f]);
       if (!Number.isFinite(n) || n < 0) throw new HttpError(400, `${f} must be a number ≥ 0`);
       (data as any)[f] = n;
+    }
+
+    // Sale channel / payment method — validated against the fixed lists.
+    const choices = { saleChannel: SALE_CHANNELS, paymentMethod: PAYMENT_METHODS } as const;
+    for (const f of ['saleChannel', 'paymentMethod'] as const) {
+      if (b[f] === undefined) continue;
+      if (b[f] === null || b[f] === '') {
+        data[f] = null;
+        continue;
+      }
+      if (!(choices[f] as readonly string[]).includes(b[f])) {
+        throw new HttpError(400, `${f} must be one of: ${choices[f].join(', ')}`);
+      }
+      data[f] = b[f];
     }
 
     // Currency / purchase price recalculation.

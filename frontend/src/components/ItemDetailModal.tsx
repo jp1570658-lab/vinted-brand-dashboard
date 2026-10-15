@@ -6,6 +6,7 @@ import { STATUS_ORDER, STATUS_LABEL } from '../lib/status';
 import { COST_LINES, totalCost } from '../lib/cost';
 import { StatusBadge } from './StatusBadge';
 import { ItemImage } from './ItemImage';
+import { RecordSaleModal } from './RecordSaleModal';
 
 interface Props {
   item: Item | null;
@@ -24,9 +25,23 @@ export function ItemDetailModal({ item, onClose, onChanged }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [listed, setListed] = useState('');
   const [sale, setSale] = useState('');
+  const [recording, setRecording] = useState(false);
 
   if (!item) return null;
   const advance = nextStatus(item.status);
+
+  if (recording) {
+    return (
+      <RecordSaleModal
+        item={item}
+        onClose={() => setRecording(false)}
+        onSold={() => {
+          onChanged();
+          onClose();
+        }}
+      />
+    );
+  }
 
   async function patch(patch: Partial<Item> & { status?: ItemStatus }) {
     if (!item) return;
@@ -104,7 +119,9 @@ export function ItemDetailModal({ item, onClose, onChanged }: Props) {
                 }
               />
             )}
-            {item.saleSource && <Row label="Sale source" value={item.saleSource} />}
+            {item.saleChannel && <Row label="Channel" value={item.saleChannel} />}
+            {item.paymentMethod && <Row label="Paid via" value={item.paymentMethod} />}
+            {item.saleSource && <Row label="Recorded" value={item.saleSource} />}
           </dl>
 
           <CostBreakdown item={item} busy={busy} onSave={(costs) => patch(costs)} />
@@ -170,22 +187,9 @@ export function ItemDetailModal({ item, onClose, onChanged }: Props) {
               </button>
             )}
             {item.status === 'IN_STOCK' && (
-              <div className="flex w-full gap-2">
-                <input
-                  value={sale}
-                  onChange={(e) => setSale(e.target.value)}
-                  inputMode="decimal"
-                  placeholder="Sale price €"
-                  className="input flex-1"
-                />
-                <button
-                  disabled={busy || !sale}
-                  onClick={() => patch({ status: 'SOLD', salePrice: Number(sale) })}
-                  className="btn-gold"
-                >
-                  Mark Sold
-                </button>
-              </div>
+              <button disabled={busy} onClick={() => setRecording(true)} className="btn-gold">
+                💶 Record Direct Sale
+              </button>
             )}
             <button disabled={busy} onClick={remove} className="btn-ghost text-red-400">
               Delete

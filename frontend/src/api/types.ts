@@ -38,6 +38,8 @@ export interface Item {
   notes?: string | null;
   vintedOrderId?: string | null;
   saleSource?: string | null;
+  saleChannel?: string | null;
+  paymentMethod?: string | null;
   runnerId?: string | null;
   runner?: Runner | null;
   createdAt: string;

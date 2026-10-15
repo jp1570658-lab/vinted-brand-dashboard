@@ -12,6 +12,9 @@ export interface ParsedSale {
   title: string; // item name as seen at the source
   price: number; // EUR
   orderId?: string; // Vinted order id or listing id, if known
+  channel?: string; // sale platform (defaults to Vinted)
+  platformFee?: number; // EUR fee withheld by the platform, if the source reports it
+  outboundShipping?: number; // EUR shipping paid by the seller, if reported
   raw?: string;
 }
 
@@ -54,7 +57,11 @@ export async function matchAndSell(sale: ParsedSale, source: SaleSource): Promis
     return null;
   }
 
-  const netProfit = calcNetProfit({ ...best.item, salePrice: sale.price });
+  const fees = {
+    platformFee: sale.platformFee ?? best.item.platformFee,
+    outboundShipping: sale.outboundShipping ?? best.item.outboundShipping,
+  };
+  const netProfit = calcNetProfit({ ...best.item, ...fees, salePrice: sale.price });
 
   await prisma.item.update({
     where: { id: best.item.id },
@@ -64,6 +71,8 @@ export async function matchAndSell(sale: ParsedSale, source: SaleSource): Promis
       salePrice: sale.price,
       netProfit,
       saleSource: source,
+      saleChannel: sale.channel ?? 'Vinted',
+      ...fees,
       vintedOrderId: sale.orderId ?? null,
     },
   });

@@ -171,6 +171,7 @@ async function reconcileWardrobe(listings: VintedListing[], now: Date): Promise<
         data.salePrice = salePrice;
         data.netProfit = calcNetProfit({ ...existing, salePrice });
         data.saleSource = existing.saleSource ?? 'AUTO_VINTED';
+        data.saleChannel = existing.saleChannel ?? 'Vinted';
         updatedToSold++;
         soldItemIds.push(existing.id);
         details.push(`Sold: "${l.title}" → item ${existing.id} (€${salePrice ?? '?'})`);
@@ -203,6 +204,7 @@ async function reconcileWardrobe(listings: VintedListing[], now: Date): Promise<
         netProfit: null,
         vintedOrderId: l.vintedItemId,
         saleSource: l.isClosed ? 'IMPORT_VINTED' : null,
+        saleChannel: l.isClosed ? 'Vinted' : null,
         notes: `Imported from Vinted${l.condition ? ` · ${l.condition}` : ''} · set purchase price`,
       },
     });
