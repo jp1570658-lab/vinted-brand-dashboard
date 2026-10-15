@@ -55,17 +55,20 @@ export function CardGridView({ title, status, showAging, showListed, emptyMessag
         {loading ? (
           <CardGridSkeleton />
         ) : items.length === 0 ? (
-          <EmptyState
-            title="Nothing here yet"
-            message={emptyMessage}
-            action={
-              status === 'SOURCED' ? (
-                <button onClick={openIntake} className="btn-gold">
-                  + Quick Intake
-                </button>
-              ) : undefined
-            }
-          />
+          // A failed load is not an empty section — show only the error above.
+          error ? null : (
+            <EmptyState
+              title="Nothing here yet"
+              message={emptyMessage}
+              action={
+                status === 'SOURCED' ? (
+                  <button onClick={openIntake} className="btn-gold">
+                    + Quick Intake
+                  </button>
+                ) : undefined
+              }
+            />
+          )
         ) : (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {items.map((item) => (
