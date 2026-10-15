@@ -36,3 +36,6 @@ ad/work/frames/
 Thumbs.db
 .vscode/
 .idea/
+
+# private sales exports & screenshots (personal business data — never pushed)
+transactions/
