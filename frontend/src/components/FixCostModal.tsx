@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Item, WiseTransaction } from '../api/types';
 import { api } from '../api/endpoints';
+import { totalCost } from '../lib/cost';
 import { eur, money, pct, shortDate } from '../lib/format';
 import { suggestTransactions, SUGGEST_THRESHOLD } from '../lib/matchItem';
 import { isUnlinked } from '../lib/tx';
@@ -62,8 +63,12 @@ export function FixCostModal({ item, onClose, onChanged }: Props) {
   const sale = item.salePrice ?? 0;
   const purchaseNum = Number(purchase) || 0;
   const shippingNum = Number(shipping) || 0;
-  const customs = item.customsFees ?? 0;
-  const cost = purchaseNum + shippingNum + customs;
+  // Preview with every other recorded cost; blank shipping keeps the stored value (as save does).
+  const cost = totalCost({
+    ...item,
+    purchasePriceEur: purchaseNum,
+    shippingCost: shipping.trim() !== '' ? shippingNum : item.shippingCost,
+  });
   const profit = sale - cost;
   const margin = sale > 0 ? (profit / sale) * 100 : null;
   const canSave = purchase.trim() !== '' && Number.isFinite(purchaseNum) && purchaseNum >= 0;
@@ -208,7 +213,7 @@ export function FixCostModal({ item, onClose, onChanged }: Props) {
                           disabled={busy}
                           className="flex-1 rounded-lg border border-edge px-2 py-1.5 text-xs text-neutral-300 transition hover:border-gold/50 hover:text-gold disabled:opacity-50"
                         >
-                          Use as shipping
+                          Use as freight
                         </button>
                       </div>
                     </li>
@@ -237,7 +242,7 @@ export function FixCostModal({ item, onClose, onChanged }: Props) {
               />
             </label>
             <label className="flex flex-col text-xs text-neutral-500">
-              Shipping (€) <span className="text-neutral-600">optional</span>
+              Inbound freight (€) <span className="text-neutral-600">optional</span>
               <input
                 value={shipping}
                 onChange={(e) => setShipping(e.target.value)}

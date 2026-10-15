@@ -48,13 +48,15 @@ indexes (Step 10), `GoogleToken` table to persist Gmail OAuth refresh token (LIV
 
 | Model | Key fields |
 |---|---|
-| **Item** | id, brand, model, grade?, color?, photoUrl?, status(enum), sourcedAt, transitAt?, stockAt?, soldAt?, purchasePrice, purchaseCurrency, purchasePriceEur?, shippingCost?, customsFees?, listedPrice?, salePrice?, netProfit?, notes?, vintedOrderId?, saleSource?, runnerId?→Runner, wiseTransactions[], deletedAt?, createdAt, updatedAt |
+| **Item** | id, brand, model, grade?, color?, photoUrl?, status(enum), sourcedAt, transitAt?, stockAt?, soldAt?, purchasePrice, purchaseCurrency, purchasePriceEur?, shippingCost? (inbound freight), customsFees?, authFee?, otherCosts?, platformFee?, outboundShipping?, listedPrice?, salePrice?, netProfit?, notes?, vintedOrderId?, saleSource?, runnerId?→Runner, wiseTransactions[], deletedAt?, createdAt, updatedAt |
 | **Runner** | id, name, location, contact?, items[], createdAt |
 | **WiseTransaction** | id, wiseId(unique), date, amount, currency, amountEur?, description, category?, itemId?→Item, createdAt |
 | **GmailSync** | id, lastSyncAt, emailCount, salesFound |
 | **GoogleToken** (LIVE) | id, refreshToken, accessToken?, expiry?, createdAt, updatedAt |
 
 `enum ItemStatus { SOURCED IN_TRANSIT IN_STOCK SOLD }`
+
+Landed cost (migration `4_landed_cost`): net profit = salePrice − (purchasePriceEur + shippingCost + customsFees + authFee + otherCosts + platformFee + outboundShipping). Single source: `backend/src/lib/profit.ts` (`COST_FIELDS`, `landedCost`).
 
 ---
 

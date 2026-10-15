@@ -42,21 +42,11 @@ export async function matchAndSell(sale: ParsedSale, source: SaleSource): Promis
     return null;
   }
 
-  let best:
-    | { id: string; score: number; purchasePriceEur: number | null; shipping: number | null; customs: number | null }
-    | null = null;
+  let best: { item: (typeof candidates)[number]; score: number } | null = null;
   for (const c of candidates) {
     const name = `${c.brand} ${c.model}`;
     const score = similarity(name, sale.title);
-    if (!best || score > best.score) {
-      best = {
-        id: c.id,
-        score,
-        purchasePriceEur: c.purchasePriceEur,
-        shipping: c.shippingCost,
-        customs: c.customsFees,
-      };
-    }
+    if (!best || score > best.score) best = { item: c, score };
   }
 
   if (!best || best.score < MATCH_THRESHOLD) {
@@ -64,15 +54,10 @@ export async function matchAndSell(sale: ParsedSale, source: SaleSource): Promis
     return null;
   }
 
-  const netProfit = calcNetProfit({
-    salePrice: sale.price,
-    purchasePriceEur: best.purchasePriceEur,
-    shippingCost: best.shipping,
-    customsFees: best.customs,
-  });
+  const netProfit = calcNetProfit({ ...best.item, salePrice: sale.price });
 
   await prisma.item.update({
-    where: { id: best.id },
+    where: { id: best.item.id },
     data: {
       status: 'SOLD',
       soldAt: new Date(),
@@ -82,5 +67,5 @@ export async function matchAndSell(sale: ParsedSale, source: SaleSource): Promis
       vintedOrderId: sale.orderId ?? null,
     },
   });
-  return best.id;
+  return best.item.id;
 }

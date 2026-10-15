@@ -1,8 +1,19 @@
 import type { Item } from '../api/types';
 
-/** Total landed cost of an item in EUR (purchase + shipping + customs). */
+/** Every EUR cost that makes up an item's landed cost, with its display label. */
+export const COST_LINES = [
+  { key: 'purchasePriceEur', label: 'Sourcing' },
+  { key: 'shippingCost', label: 'Inbound freight' },
+  { key: 'customsFees', label: 'Customs' },
+  { key: 'authFee', label: 'Authentication' },
+  { key: 'otherCosts', label: 'Restoration / other' },
+  { key: 'platformFee', label: 'Platform fee' },
+  { key: 'outboundShipping', label: 'Outbound shipping' },
+] as const satisfies readonly { key: keyof Item; label: string }[];
+
+/** Total landed cost of an item in EUR — the sum of every recorded cost. */
 export function totalCost(it: Item): number {
-  return (it.purchasePriceEur ?? 0) + (it.shippingCost ?? 0) + (it.customsFees ?? 0);
+  return COST_LINES.reduce((sum, l) => sum + (it[l.key] ?? 0), 0);
 }
 
 /** No purchase/shipping/customs cost recorded → profit & margin are overstated. */

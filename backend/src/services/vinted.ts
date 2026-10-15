@@ -169,12 +169,7 @@ async function reconcileWardrobe(listings: VintedListing[], now: Date): Promise<
         data.status = 'SOLD';
         data.soldAt = existing.soldAt ?? now;
         data.salePrice = salePrice;
-        data.netProfit = calcNetProfit({
-          salePrice: salePrice,
-          purchasePriceEur: existing.purchasePriceEur,
-          shippingCost: existing.shippingCost,
-          customsFees: existing.customsFees,
-        });
+        data.netProfit = calcNetProfit({ ...existing, salePrice });
         data.saleSource = existing.saleSource ?? 'AUTO_VINTED';
         updatedToSold++;
         soldItemIds.push(existing.id);

@@ -39,3 +39,6 @@ Thumbs.db
 
 # private sales exports & screenshots (personal business data — never pushed)
 transactions/
+
+# upgrade briefs (contain private correspondence & business IDs — never pushed)
+update-instructions/

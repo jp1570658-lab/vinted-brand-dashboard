@@ -3,6 +3,7 @@ import type { Item, ItemStatus } from '../api/types';
 import { api } from '../api/endpoints';
 import { eur, money, shortDate } from '../lib/format';
 import { STATUS_ORDER, STATUS_LABEL } from '../lib/status';
+import { COST_LINES, totalCost } from '../lib/cost';
 import { StatusBadge } from './StatusBadge';
 import { ItemImage } from './ItemImage';
 
@@ -106,6 +107,8 @@ export function ItemDetailModal({ item, onClose, onChanged }: Props) {
             {item.saleSource && <Row label="Sale source" value={item.saleSource} />}
           </dl>
 
+          <CostBreakdown item={item} busy={busy} onSave={(costs) => patch(costs)} />
+
           {item.notes && (
             <p className="mt-3 rounded-lg bg-black/30 p-3 text-sm text-neutral-400">{item.notes}</p>
           )}
@@ -199,6 +202,102 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
     <div>
       <dt className="text-xs text-neutral-500">{label}</dt>
       <dd className="text-neutral-200">{value}</dd>
+    </div>
+  );
+}
+
+// Costs the operator can edit here (sourcing price is set via intake / Fix cost).
+const EDITABLE = COST_LINES.filter((l) => l.key !== 'purchasePriceEur');
+type EditableKey = (typeof EDITABLE)[number]['key'];
+
+/** Landed-cost breakdown + inline editor for the per-item cost fields. */
+function CostBreakdown({
+  item,
+  busy,
+  onSave,
+}: {
+  item: Item;
+  busy: boolean;
+  onSave: (costs: Partial<Record<EditableKey, number | null>>) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<Record<EditableKey, string>>(
+    () =>
+      Object.fromEntries(
+        EDITABLE.map((l) => [l.key, item[l.key] != null ? String(item[l.key]) : '']),
+      ) as Record<EditableKey, string>,
+  );
+  const recorded = COST_LINES.filter((l) => (item[l.key] ?? 0) > 0);
+  const invalid = EDITABLE.some((l) => {
+    const v = draft[l.key].trim();
+    return v !== '' && !(Number(v) >= 0);
+  });
+
+  function save() {
+    const out: Partial<Record<EditableKey, number | null>> = {};
+    for (const l of EDITABLE) {
+      const v = draft[l.key].trim();
+      out[l.key] = v === '' ? null : Number(v);
+    }
+    onSave(out);
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-edge p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+          Landed cost
+        </span>
+        <button
+          type="button"
+          onClick={() => setEditing((e) => !e)}
+          className="text-xs text-gold hover:underline"
+        >
+          {editing ? 'Cancel' : 'Edit costs'}
+        </button>
+      </div>
+
+      {editing ? (
+        <div className="mt-2">
+          <div className="grid grid-cols-2 gap-2">
+            {EDITABLE.map((l) => (
+              <label key={l.key} className="text-[11px] text-neutral-500">
+                {l.label} (€)
+                <input
+                  value={draft[l.key]}
+                  onChange={(e) => setDraft((d) => ({ ...d, [l.key]: e.target.value }))}
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  className="input mt-0.5 w-full"
+                />
+              </label>
+            ))}
+          </div>
+          {invalid && <p className="mt-1 text-xs text-red-400">Costs must be numbers ≥ 0.</p>}
+          <button
+            type="button"
+            disabled={busy || invalid}
+            onClick={save}
+            className="btn-gold mt-2 w-full"
+          >
+            Save costs
+          </button>
+        </div>
+      ) : (
+        <dl className="mt-2 space-y-1 text-sm">
+          {recorded.length === 0 && <p className="text-xs text-neutral-600">No costs recorded yet.</p>}
+          {recorded.map((l) => (
+            <div key={l.key} className="flex justify-between">
+              <dt className="text-neutral-500">{l.label}</dt>
+              <dd className="text-neutral-200">{eur(item[l.key])}</dd>
+            </div>
+          ))}
+          <div className="flex justify-between border-t border-edge pt-1 font-semibold">
+            <dt className="text-neutral-400">Total</dt>
+            <dd className="text-neutral-100">{eur(totalCost(item))}</dd>
+          </div>
+        </dl>
+      )}
     </div>
   );
 }

@@ -229,7 +229,7 @@ function ReconcileRow({
                       disabled={busy}
                       className="flex-1 rounded-lg border border-edge px-2 py-1.5 text-xs text-neutral-300 transition hover:border-gold/50 hover:text-gold disabled:opacity-50"
                     >
-                      {busy ? '…' : 'Use as shipping'}
+                      {busy ? '…' : 'Use as freight'}
                     </button>
                   </div>
                 </div>

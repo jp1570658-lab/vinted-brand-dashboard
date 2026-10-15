@@ -20,49 +20,46 @@ const TX_INCLUDE = {
   },
 } satisfies Prisma.WiseTransactionInclude;
 
-/** Set an EUR amount onto an item as its purchase or shipping cost; recompute profit if sold. */
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Fold an EUR amount into an item's cost; recompute profit if sold.
+ * PURCHASE sets the purchase price (a bag has one). SHIPPING is ADDITIVE onto the
+ * inbound-freight share, so a bag carried on several freight/courier legs (each
+ * split across its batch) accumulates all of them (DECISIONS.md #22).
+ */
 async function applyCostToItem(itemId: string, applyAs: ApplyMode, amountEur: number) {
   const item = await prisma.item.findFirst({ where: { id: itemId, deletedAt: null } });
   if (!item) throw new HttpError(400, 'Linked item not found');
   const data: Prisma.ItemUpdateInput = {};
+  const next = { ...item };
   if (applyAs === 'PURCHASE') {
-    data.purchasePrice = amountEur;
-    data.purchaseCurrency = 'EUR';
-    data.purchasePriceEur = amountEur;
+    data.purchasePrice = next.purchasePrice = amountEur;
+    data.purchaseCurrency = next.purchaseCurrency = 'EUR';
+    data.purchasePriceEur = next.purchasePriceEur = amountEur;
   } else {
-    data.shippingCost = amountEur;
+    data.shippingCost = next.shippingCost = round2((item.shippingCost ?? 0) + amountEur);
   }
-  if (item.status === 'SOLD') {
-    data.netProfit = calcNetProfit({
-      salePrice: item.salePrice,
-      purchasePriceEur: applyAs === 'PURCHASE' ? amountEur : item.purchasePriceEur,
-      shippingCost: applyAs === 'SHIPPING' ? amountEur : item.shippingCost,
-      customsFees: item.customsFees,
-    });
-  }
+  if (item.status === 'SOLD') data.netProfit = calcNetProfit(next);
   await prisma.item.update({ where: { id: item.id }, data });
 }
 
-/** Undo a previously-applied cost (back to 0/none); recompute profit if sold. */
-async function resetCostOnItem(itemId: string, applyAs: ApplyMode) {
+/** Undo a previously-applied cost; recompute profit if sold. */
+async function resetCostOnItem(itemId: string, applyAs: ApplyMode, amountEur: number) {
   const item = await prisma.item.findFirst({ where: { id: itemId, deletedAt: null } });
   if (!item) return;
   const data: Prisma.ItemUpdateInput = {};
+  const next = { ...item };
   if (applyAs === 'PURCHASE') {
-    data.purchasePrice = 0;
-    data.purchaseCurrency = 'EUR';
-    data.purchasePriceEur = 0;
+    data.purchasePrice = next.purchasePrice = 0;
+    data.purchaseCurrency = next.purchaseCurrency = 'EUR';
+    data.purchasePriceEur = next.purchasePriceEur = 0;
   } else {
-    data.shippingCost = null;
+    // Remove only this expense's share; clear the field once nothing is left.
+    const left = round2((item.shippingCost ?? 0) - amountEur);
+    data.shippingCost = next.shippingCost = left > 0.005 ? left : null;
   }
-  if (item.status === 'SOLD') {
-    data.netProfit = calcNetProfit({
-      salePrice: item.salePrice,
-      purchasePriceEur: applyAs === 'PURCHASE' ? 0 : item.purchasePriceEur,
-      shippingCost: applyAs === 'SHIPPING' ? null : item.shippingCost,
-      customsFees: item.customsFees,
-    });
-  }
+  if (item.status === 'SOLD') data.netProfit = calcNetProfit(next);
   await prisma.item.update({ where: { id: item.id }, data });
 }
 
@@ -132,7 +129,10 @@ transactionsRouter.patch(
       if (!tx.itemId) {
         throw new HttpError(400, 'Cannot apply cost: transaction is not linked to an item');
       }
-      await applyCostToItem(tx.itemId, applyAs, tx.amountEur ?? tx.amount);
+      // Re-linking to the same item must not fold the amount in twice (freight is additive).
+      if (existing.itemId !== tx.itemId) {
+        await applyCostToItem(tx.itemId, applyAs, tx.amountEur ?? tx.amount);
+      }
     }
 
     res.json(tx);
@@ -187,7 +187,9 @@ transactionsRouter.post(
     if (found.length !== ids.size) throw new HttpError(400, 'One or more items not found');
 
     // Undo the previous split, then apply the new one.
-    for (const old of tx.splits) await resetCostOnItem(old.itemId, old.applyAs as ApplyMode);
+    for (const old of tx.splits) {
+      await resetCostOnItem(old.itemId, old.applyAs as ApplyMode, old.amount);
+    }
     await prisma.transactionSplit.deleteMany({ where: { transactionId: tx.id } });
 
     for (const a of allocations) {
@@ -224,7 +226,7 @@ transactionsRouter.delete(
     });
     if (!tx) throw new HttpError(404, 'Transaction not found');
 
-    for (const s of tx.splits) await resetCostOnItem(s.itemId, s.applyAs as ApplyMode);
+    for (const s of tx.splits) await resetCostOnItem(s.itemId, s.applyAs as ApplyMode, s.amount);
     await prisma.transactionSplit.deleteMany({ where: { transactionId: tx.id } });
 
     const updated = await prisma.wiseTransaction.findUnique({

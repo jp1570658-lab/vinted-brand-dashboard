@@ -34,8 +34,12 @@ model Item {
   purchasePrice    Float
   purchaseCurrency String             @default("EUR")
   purchasePriceEur Float?
-  shippingCost     Float?
+  shippingCost     Float? // inbound freight / courier share (runner → you)
   customsFees      Float?
+  authFee          Float? // authentication (Legit App, Entrupy…)
+  otherCosts       Float? // restoration, cleaning, repairs
+  platformFee      Float? // selling platform / payment fee on the sale
+  outboundShipping Float? // shipping to the buyer, if paid by you
   listedPrice      Float?
   salePrice        Float?
   netProfit        Float?

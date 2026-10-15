@@ -163,8 +163,24 @@ itemsRouter.patch(
     for (const f of ['brand', 'model', 'grade', 'color', 'notes', 'vintedOrderId'] as const) {
       if (b[f] !== undefined) (data as any)[f] = b[f] === null ? null : String(b[f]);
     }
-    for (const f of ['shippingCost', 'customsFees', 'listedPrice', 'salePrice'] as const) {
-      if (b[f] !== undefined) (data as any)[f] = b[f] === null ? null : Number(b[f]);
+    for (const f of [
+      'shippingCost',
+      'customsFees',
+      'authFee',
+      'otherCosts',
+      'platformFee',
+      'outboundShipping',
+      'listedPrice',
+      'salePrice',
+    ] as const) {
+      if (b[f] === undefined) continue;
+      if (b[f] === null || b[f] === '') {
+        (data as any)[f] = null;
+        continue;
+      }
+      const n = Number(b[f]);
+      if (!Number.isFinite(n) || n < 0) throw new HttpError(400, `${f} must be a number ≥ 0`);
+      (data as any)[f] = n;
     }
 
     // Currency / purchase price recalculation.
@@ -203,13 +219,8 @@ itemsRouter.patch(
     // Recompute netProfit when sold or when sale-related figures change.
     const willBeSold = becameSold || existing.status === 'SOLD';
     if (willBeSold) {
-      const merged = {
-        salePrice: (data.salePrice as number) ?? existing.salePrice,
-        purchasePriceEur: (data.purchasePriceEur as number) ?? existing.purchasePriceEur,
-        shippingCost: (data.shippingCost as number) ?? existing.shippingCost,
-        customsFees: (data.customsFees as number) ?? existing.customsFees,
-      };
-      data.netProfit = calcNetProfit(merged);
+      // Fields present in `data` (including explicit nulls) override the stored row.
+      data.netProfit = calcNetProfit({ ...existing, ...(data as Record<string, unknown>) });
       if (becameSold && existing.saleSource == null) data.saleSource = 'MANUAL';
     }
 

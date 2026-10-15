@@ -24,8 +24,12 @@ export interface Item {
   purchasePrice: number;
   purchaseCurrency: string;
   purchasePriceEur?: number | null;
-  shippingCost?: number | null;
+  shippingCost?: number | null; // inbound freight share
   customsFees?: number | null;
+  authFee?: number | null;
+  otherCosts?: number | null; // restoration, cleaning, repairs
+  platformFee?: number | null;
+  outboundShipping?: number | null;
   listedPrice?: number | null;
   salePrice?: number | null;
   netProfit?: number | null;

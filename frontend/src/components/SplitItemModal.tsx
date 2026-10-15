@@ -231,7 +231,7 @@ export function SplitItemModal({ tx, items, onClose, onDone }: Props) {
                       : 'border-edge text-neutral-400'
                   }`}
                 >
-                  As shipping
+                  As inbound freight
                 </button>
               </div>
 
