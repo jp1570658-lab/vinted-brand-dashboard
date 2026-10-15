@@ -80,10 +80,12 @@ function MonthlyChart({ months }: { months: MonthPoint[] }) {
   const max = Math.max(1, ...months.map((m) => Math.max(m.revenue, m.profit)));
 
   return (
-    <div className="flex items-end gap-2 sm:gap-4" style={{ height: 200 }}>
+    // Columns stretch to the chart's 200px; the bar area takes what the label leaves,
+    // so bar heights (a % of it) resolve against a real height.
+    <div className="flex gap-2 sm:gap-4" style={{ height: 200 }}>
       {months.map((m) => (
         <div key={m.month} className="flex flex-1 flex-col items-center gap-1">
-          <div className="flex h-full w-full items-end justify-center gap-1">
+          <div className="flex min-h-0 w-full flex-1 items-end justify-center gap-1">
             <Bar value={m.revenue} max={max} className="bg-gold" title={`Revenue ${eur(m.revenue)}`} />
             <Bar
               value={m.profit}
