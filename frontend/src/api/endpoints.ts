@@ -71,6 +71,16 @@ export const api = {
     ) => apiSend<WiseTransaction>(`/api/transactions/${id}/split`, 'POST', data),
     unsplit: (id: string) =>
       apiSend<WiseTransaction>(`/api/transactions/${id}/split`, 'DELETE'),
+    create: (data: {
+      date: string;
+      description: string;
+      amount: number;
+      currency: string;
+      source: string;
+      category: string;
+      fee?: number | null;
+    }) => apiSend<WiseTransaction>('/api/transactions', 'POST', data),
+    remove: (id: string) => apiSend<{ ok: true }>(`/api/transactions/${id}`, 'DELETE'),
   },
 
   sync: {

@@ -4,6 +4,7 @@ import { api } from '../api/endpoints';
 import { eur } from '../lib/format';
 import { ItemImage } from './ItemImage';
 import { StatusBadge } from './StatusBadge';
+import { txTotalEur } from '../lib/expenses';
 
 interface Props {
   tx: WiseTransaction;
@@ -22,7 +23,7 @@ interface Picked {
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export function SplitItemModal({ tx, items, onClose, onDone }: Props) {
-  const total = tx.amountEur ?? tx.amount;
+  const total = txTotalEur(tx); // includes any transfer fee, so Split evenly spreads it
 
   const [query, setQuery] = useState('');
   const [applyAs, setApplyAs] = useState<ApplyChoice>('PURCHASE');
@@ -115,6 +116,7 @@ export function SplitItemModal({ tx, items, onClose, onDone }: Props) {
             <h2 className="text-sm font-semibold text-neutral-100">Split across items</h2>
             <p className="mt-0.5 text-xs text-neutral-500">
               {tx.description} · <span className="text-neutral-300">{eur(total)}</span>
+              {tx.fee ? ` (incl. ${eur(tx.fee)} transfer fee — split evenly spreads it across the bags)` : ''}
             </p>
           </div>
           <button onClick={onClose} className="text-neutral-500 hover:text-neutral-200">

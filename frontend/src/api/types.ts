@@ -65,6 +65,8 @@ export interface WiseTransaction {
   amountEur?: number | null;
   description: string;
   category?: string | null;
+  source?: string; // WISE | WESTERN_UNION | BANK_TRANSFER | CASH | CARD | PAYPAL | OTHER
+  fee?: number | null; // EUR transfer fee
   itemId?: string | null;
   item?: { id: string; brand: string; model: string } | null;
   splits?: TxSplit[];

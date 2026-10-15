@@ -10,6 +10,7 @@ import { eur, money, shortDate } from '../lib/format';
 import { soldNeedsCost, profitOf } from '../lib/cost';
 import { isUnlinked } from '../lib/tx';
 import { suggestTransactions, runnerNamesOf, SUGGEST_THRESHOLD } from '../lib/matchItem';
+import { txTotalEur } from '../lib/expenses';
 import { useLayout } from '../hooks/useLayout';
 
 type ApplyAs = 'PURCHASE' | 'SHIPPING';
@@ -195,7 +196,7 @@ function ReconcileRow({
               Suggested payment{candidates.length > 1 ? 's' : ''}
             </div>
             {candidates.map((tx) => {
-              const amt = tx.amountEur ?? tx.amount;
+              const amt = txTotalEur(tx);
               const busy = busyTx === tx.id;
               return (
                 <div

@@ -82,6 +82,8 @@ model WiseTransaction {
   amountEur   Float?
   description String
   category    String?
+  source      String             @default("WISE") // WISE | WESTERN_UNION | BANK_TRANSFER | CASH | CARD | PAYPAL | OTHER
+  fee         Float? // transfer fee in EUR (e.g. Western Union), part of the expense's total cost
   itemId      String?
   item        Item?              @relation(fields: [itemId], references: [id])
   splits      TransactionSplit[]

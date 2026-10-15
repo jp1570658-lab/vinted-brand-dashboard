@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Item, WiseTransaction } from '../api/types';
 import { api } from '../api/endpoints';
 import { totalCost } from '../lib/cost';
+import { txTotalEur } from '../lib/expenses';
 import { eur, money, pct, shortDate } from '../lib/format';
 import { suggestTransactions, SUGGEST_THRESHOLD } from '../lib/matchItem';
 import { isUnlinked } from '../lib/tx';
@@ -174,7 +175,7 @@ export function FixCostModal({ item, onClose, onChanged }: Props) {
             ) : (
               <ul className="space-y-2">
                 {visibleTxns.slice(0, showAll ? 50 : 4).map((tx) => {
-                  const amt = tx.amountEur ?? tx.amount;
+                  const amt = txTotalEur(tx);
                   const suggested = confidentIds.has(tx.id);
                   return (
                     <li

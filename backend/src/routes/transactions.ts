@@ -1,10 +1,13 @@
+import { randomUUID } from 'crypto';
 import { Router } from 'express';
-import { param } from 'express-validator';
+import { body, param } from 'express-validator';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { asyncHandler, HttpError } from '../middleware/errorHandler';
 import { handleValidation } from '../middleware/validate';
 import { calcNetProfit } from '../lib/profit';
+import { EXPENSE_CATEGORIES, EXPENSE_SOURCES, txTotalEur } from '../lib/expenses';
+import { toEur, SUPPORTED_CURRENCIES } from '../services/currency';
 
 export const transactionsRouter = Router();
 
@@ -87,6 +90,70 @@ transactionsRouter.get(
   }),
 );
 
+// POST /api/transactions — add an expense by hand (Western Union, cash, card, supplies…).
+// body: { date, description, amount, currency, source, category, fee? (EUR) }
+transactionsRouter.post(
+  '/',
+  body('description').isString().trim().notEmpty().withMessage('Description is required'),
+  body('amount').isFloat({ gt: 0 }).withMessage('Amount must be a number > 0'),
+  body('date').isISO8601().withMessage('Date must be a valid date (YYYY-MM-DD)'),
+  body('currency')
+    .optional()
+    .isIn(SUPPORTED_CURRENCIES)
+    .withMessage(`Currency must be one of: ${SUPPORTED_CURRENCIES.join(', ')}`),
+  body('source')
+    .isIn(EXPENSE_SOURCES.filter((s) => s !== 'WISE'))
+    .withMessage('Source must be Western Union, bank transfer, cash, card, PayPal or other'),
+  body('category')
+    .optional()
+    .isIn(EXPENSE_CATEGORIES)
+    .withMessage(`Category must be one of: ${EXPENSE_CATEGORIES.join(', ')}`),
+  body('fee').optional({ values: 'null' }).isFloat({ min: 0 }).withMessage('Fee must be a number ≥ 0'),
+  handleValidation,
+  asyncHandler(async (req, res) => {
+    const b = req.body;
+    const amount = Number(b.amount);
+    const currency = String(b.currency ?? 'EUR').toUpperCase();
+    const tx = await prisma.wiseTransaction.create({
+      data: {
+        // Manual rows reuse the unique `wiseId` key with a source-prefixed id.
+        wiseId: `${b.source}-${randomUUID()}`,
+        date: new Date(b.date),
+        amount,
+        currency,
+        amountEur: toEur(amount, currency),
+        description: String(b.description).trim(),
+        category: b.category ?? 'OTHER',
+        source: b.source,
+        fee: b.fee != null && b.fee !== '' ? Number(b.fee) : null,
+      },
+      include: TX_INCLUDE,
+    });
+    res.status(201).json(tx);
+  }),
+);
+
+// DELETE /api/transactions/:id — remove a hand-added expense (Wise rows are synced, not deletable).
+// Undoes any split it fed into item costs first.
+transactionsRouter.delete(
+  '/:id',
+  param('id').isString(),
+  handleValidation,
+  asyncHandler(async (req, res) => {
+    const tx = await prisma.wiseTransaction.findUnique({
+      where: { id: req.params.id },
+      include: { splits: true },
+    });
+    if (!tx) throw new HttpError(404, 'Transaction not found');
+    if (tx.source === 'WISE') {
+      throw new HttpError(400, 'Wise transactions come from the sync and cannot be deleted');
+    }
+    for (const s of tx.splits) await resetCostOnItem(s.itemId, s.applyAs as ApplyMode, s.amount);
+    await prisma.wiseTransaction.delete({ where: { id: tx.id } });
+    res.json({ ok: true });
+  }),
+);
+
 // PATCH /api/transactions/:id  (link to item, re-categorize, optional cost apply)
 transactionsRouter.patch(
   '/:id',
@@ -98,7 +165,10 @@ transactionsRouter.patch(
 
     const data: Prisma.WiseTransactionUpdateInput = {};
     if (req.body.category !== undefined) {
-      data.category = req.body.category === null ? null : String(req.body.category);
+      if (req.body.category !== null && !(EXPENSE_CATEGORIES as readonly string[]).includes(req.body.category)) {
+        throw new HttpError(400, `Category must be one of: ${EXPENSE_CATEGORIES.join(', ')}`);
+      }
+      data.category = req.body.category;
     }
     if (req.body.itemId !== undefined) {
       if (req.body.itemId === null) {
@@ -131,7 +201,7 @@ transactionsRouter.patch(
       }
       // Re-linking to the same item must not fold the amount in twice (freight is additive).
       if (existing.itemId !== tx.itemId) {
-        await applyCostToItem(tx.itemId, applyAs, tx.amountEur ?? tx.amount);
+        await applyCostToItem(tx.itemId, applyAs, txTotalEur(tx));
       }
     }
 
@@ -172,7 +242,7 @@ transactionsRouter.post(
     if (ids.size !== allocations.length) {
       throw new HttpError(400, 'Each item can appear only once in a split');
     }
-    const total = tx.amountEur ?? tx.amount;
+    const total = txTotalEur(tx); // includes any transfer fee, so splits spread it
     const sum = allocations.reduce((s, a) => s + a.amount, 0);
     if (sum > total + 0.01) {
       throw new HttpError(

@@ -5,6 +5,7 @@ import { eur, money } from '../lib/format';
 import { suggestItems, runnerNamesOf, SUGGEST_THRESHOLD } from '../lib/matchItem';
 import { ItemImage } from './ItemImage';
 import { StatusBadge } from './StatusBadge';
+import { txTotalEur } from '../lib/expenses';
 
 interface Props {
   tx: WiseTransaction;
@@ -28,7 +29,7 @@ export function LinkItemModal({ tx, items, onClose, onDone, onCreateNew }: Props
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const amount = tx.amountEur ?? tx.amount;
+  const amount = txTotalEur(tx);
 
   // Rank by match score so the likely item floats to the top, plus a set of
   // ids confident enough to badge as "Suggested".

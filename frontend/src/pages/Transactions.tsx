@@ -7,9 +7,11 @@ import { Skeleton } from '../components/Skeleton';
 import { LinkItemModal } from '../components/LinkItemModal';
 import { SplitItemModal } from '../components/SplitItemModal';
 import { QuickIntakeModal } from '../components/QuickIntakeModal';
+import { AddExpenseModal } from '../components/AddExpenseModal';
 import { eur, money, shortDate } from '../lib/format';
 import { soldNeedsCost } from '../lib/cost';
 import { isUnlinked } from '../lib/tx';
+import { CATEGORIES, CATEGORY_STYLE, catLabel, sourceLabel, txTotalEur } from '../lib/expenses';
 import { suggestItems, runnerNamesOf, SUGGEST_THRESHOLD, type Suggestion } from '../lib/matchItem';
 import { useLayout } from '../hooks/useLayout';
 
@@ -20,23 +22,6 @@ interface ReconcileTarget {
   item: Item;
   applyAs: ApplyAs;
 }
-
-const CATEGORIES = [
-  { key: 'SHIPPING', label: 'Shipping' },
-  { key: 'RUNNER_PAYMENT', label: 'Runner' },
-  { key: 'STOCK_PURCHASE', label: 'Stock' },
-  { key: 'OTHER', label: 'Other' },
-] as const;
-
-const CATEGORY_STYLE: Record<string, string> = {
-  SHIPPING: 'border-status-transit/40 bg-status-transit/15 text-status-transit',
-  RUNNER_PAYMENT: 'border-status-sourced/40 bg-status-sourced/15 text-status-sourced',
-  STOCK_PURCHASE: 'border-gold/40 bg-gold/15 text-gold',
-  OTHER: 'border-edge bg-black/20 text-neutral-400',
-};
-
-const catLabel = (k: string | null | undefined) =>
-  CATEGORIES.find((c) => c.key === k)?.label ?? 'Other';
 
 function isThisMonth(iso: string) {
   const d = new Date(iso);
@@ -59,6 +44,8 @@ export function Transactions() {
   const [linkTx, setLinkTx] = useState<WiseTransaction | null>(null);
   const [splitTx, setSplitTx] = useState<WiseTransaction | null>(null);
   const [createTx, setCreateTx] = useState<WiseTransaction | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -80,7 +67,7 @@ export function Transactions() {
     let unlinked = 0;
     let other = 0;
     for (const t of txns) {
-      const eurAmt = t.amountEur ?? t.amount;
+      const eurAmt = txTotalEur(t);
       const linked = !isUnlinked(t);
       total += eurAmt;
       if (isThisMonth(t.date)) month += eurAmt;
@@ -166,6 +153,12 @@ export function Transactions() {
     await api.transactions.update(id, { itemId: null });
   }
 
+  async function remove(id: string) {
+    setConfirmDelete(null);
+    await api.transactions.remove(id);
+    load();
+  }
+
   async function unsplit(id: string) {
     setTxns((prev) => prev.map((t) => (t.id === id ? { ...t, splits: [] } : t)));
     await api.transactions.unsplit(id);
@@ -184,6 +177,12 @@ export function Transactions() {
     <>
       <TopNav title="Transactions" onMenu={onMenu} />
       <div className="space-y-4 p-4">
+        <div className="flex justify-end">
+          <button onClick={() => setAdding(true)} className="btn-gold">
+            + Add expense
+          </button>
+        </div>
+
         {/* Spend summary */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <SummaryCard label="Total spent" value={eur(summary.total)} />
@@ -271,7 +270,7 @@ export function Transactions() {
         ) : txns.length === 0 ? (
           <EmptyState
             title="No transactions"
-            message="Run a Wise sync from Settings to pull in expenses."
+            message="Add a Western Union, cash or supplies expense, or run a Wise sync from Settings."
             icon="🧾"
           />
         ) : filtered.length === 0 ? (
@@ -302,7 +301,8 @@ export function Transactions() {
             </div>
             <ul className="space-y-2">
               {filtered.map((t) => {
-                const eurAmt = t.amountEur ?? t.amount;
+                const eurAmt = txTotalEur(t);
+                const manual = t.source != null && t.source !== 'WISE';
                 const showRaw = t.currency !== 'EUR';
                 const target = reconcileTargets.get(t.id);
                 return (
@@ -339,6 +339,33 @@ export function Transactions() {
                             {catLabel(t.category)} ▾
                           </button>
                         )}
+                        {manual && (
+                          <span className="rounded-full border border-edge px-2 py-0.5 text-[10px] text-neutral-400">
+                            {sourceLabel(t.source)}
+                          </span>
+                        )}
+                        {manual &&
+                          (confirmDelete === t.id ? (
+                            <span className="ml-auto flex items-center gap-1 text-[11px]">
+                              <button onClick={() => remove(t.id)} className="text-red-400 hover:underline">
+                                Delete
+                              </button>
+                              <button
+                                onClick={() => setConfirmDelete(null)}
+                                className="text-neutral-500 hover:underline"
+                              >
+                                Keep
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmDelete(t.id)}
+                              title="Delete this expense"
+                              className="ml-auto text-[11px] text-neutral-600 hover:text-red-400"
+                            >
+                              🗑
+                            </button>
+                          ))}
                       </div>
                       <div className="mt-1 truncate text-sm text-neutral-200">{t.description}</div>
                       {t.splits && t.splits.length > 0 && (
@@ -365,6 +392,9 @@ export function Transactions() {
                             {money(t.amount, t.currency)}
                           </div>
                         )}
+                        {t.fee ? (
+                          <div className="text-[11px] text-neutral-600">incl. {eur(t.fee)} fee</div>
+                        ) : null}
                       </div>
                       {t.splits && t.splits.length > 0 ? (
                         <div className="flex shrink-0 items-center gap-1">
@@ -502,11 +532,13 @@ export function Transactions() {
         <QuickIntakeModal
           open
           linkTxId={createTx.id}
-          prefill={{ price: String(createTx.amountEur ?? createTx.amount), currency: 'EUR' }}
+          prefill={{ price: String(txTotalEur(createTx)), currency: 'EUR' }}
           onClose={() => setCreateTx(null)}
           onCreated={load}
         />
       )}
+
+      {adding && <AddExpenseModal onClose={() => setAdding(false)} onCreated={load} />}
 
       {splitTx && (
         <SplitItemModal

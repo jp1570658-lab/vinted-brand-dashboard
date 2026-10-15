@@ -50,7 +50,7 @@ indexes (Step 10), `GoogleToken` table to persist Gmail OAuth refresh token (LIV
 |---|---|
 | **Item** | id, brand, model, grade?, color?, photoUrl?, status(enum), sourcedAt, transitAt?, stockAt?, soldAt?, purchasePrice, purchaseCurrency, purchasePriceEur?, shippingCost? (inbound freight), customsFees?, authFee?, otherCosts?, platformFee?, outboundShipping?, saleChannel?, paymentMethod?, listedOn? (comma-separated channels; API returns `listedOn[]` + derived `delistOn[]`), listedPrice?, salePrice?, netProfit?, notes?, vintedOrderId?, saleSource?, runnerId?→Runner, wiseTransactions[], deletedAt?, createdAt, updatedAt |
 | **Runner** | id, name, location, contact?, items[], createdAt |
-| **WiseTransaction** | id, wiseId(unique), date, amount, currency, amountEur?, description, category?, itemId?→Item, createdAt |
+| **WiseTransaction** (all expenses) | id, wiseId(unique; manual rows `SOURCE-uuid`), date, amount, currency, amountEur?, description, category?, source (WISE \| WESTERN_UNION \| BANK_TRANSFER \| CASH \| CARD \| PAYPAL \| OTHER), fee? (EUR), itemId?→Item, createdAt |
 | **GmailSync** | id, lastSyncAt, emailCount, salesFound |
 | **GoogleToken** (LIVE) | id, refreshToken, accessToken?, expiry?, createdAt, updatedAt |
 
