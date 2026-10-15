@@ -19,3 +19,24 @@ export const PAYMENT_METHODS = [
   'PayPal',
   'Stripe',
 ] as const;
+
+/** Parse the stored comma-separated `Item.listedOn` into channel names. */
+export function parseListedOn(v: string | null | undefined): string[] {
+  return (v ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Cross-listing reminder: platforms a SOLD bag is still advertised on, other than
+ * the one it sold on — these listings must be deleted / marked reserved.
+ */
+export function delistOn(item: {
+  status: string;
+  listedOn: string | null;
+  saleChannel: string | null;
+}): string[] {
+  if (item.status !== 'SOLD') return [];
+  return parseListedOn(item.listedOn).filter((c) => c !== item.saleChannel);
+}

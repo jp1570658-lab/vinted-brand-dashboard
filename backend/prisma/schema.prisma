@@ -49,6 +49,7 @@ model Item {
   saleSource       String? // "AUTO_GMAIL" | "AUTO_VINTED" | "MANUAL"
   saleChannel      String? // Vinted | Depop | Vestiaire Collective | WhatsApp | Instagram | Direct Pickup | Other
   paymentMethod    String? // Platform payout | Wise | Bank transfer | Cash | Payconiq | PayPal | Stripe
+  listedOn         String? // comma-separated SALE_CHANNELS the bag is advertised on (cross-listing)
   runnerId         String?
   runner           Runner?            @relation(fields: [runnerId], references: [id])
   wiseTransactions WiseTransaction[]

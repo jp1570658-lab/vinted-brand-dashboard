@@ -29,15 +29,18 @@ export function Dashboard() {
   // payments not yet linked to an item.
   const [needsCost, setNeedsCost] = useState(0);
   const [unlinked, setUnlinked] = useState(0);
+  const [toDelist, setToDelist] = useState(0);
   useEffect(() => {
     Promise.all([api.items.list({ status: 'SOLD', limit: 200 }), api.transactions.list({ limit: 200 })])
       .then(([sold, txns]) => {
         setNeedsCost(sold.data.filter(soldNeedsCost).length);
+        setToDelist(sold.data.filter((i) => (i.delistOn?.length ?? 0) > 0).length);
         setUnlinked(txns.data.filter(isUnlinked).length);
       })
       .catch(() => {
         setNeedsCost(0);
         setUnlinked(0);
+        setToDelist(0);
       });
   }, [refreshKey]);
 
@@ -83,10 +86,18 @@ export function Dashboard() {
         )}
 
         {/* Needs attention — reconciliation & linking backlog */}
-        {(needsCost > 0 || unlinked > 0) && (
+        {(needsCost > 0 || unlinked > 0 || toDelist > 0) && (
           <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
             <div className="mb-2 px-1 text-sm font-semibold text-amber-200">Needs attention</div>
             <div className="space-y-1.5">
+              {toDelist > 0 && (
+                <AttentionRow
+                  to="/sold"
+                  icon="📣"
+                  text={`${toDelist} sold ${toDelist === 1 ? 'bag is' : 'bags are'} still listed on other platforms — delete or mark reserved`}
+                  cta="Review →"
+                />
+              )}
               {needsCost > 0 && (
                 <AttentionRow
                   to="/reconcile"

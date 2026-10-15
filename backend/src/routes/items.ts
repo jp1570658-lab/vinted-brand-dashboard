@@ -7,7 +7,7 @@ import { handleValidation } from '../middleware/validate';
 import { upload } from '../middleware/upload';
 import { toEur, SUPPORTED_CURRENCIES } from '../services/currency';
 import { calcNetProfit, calcMarginPct } from '../lib/profit';
-import { SALE_CHANNELS, PAYMENT_METHODS } from '../lib/channels';
+import { SALE_CHANNELS, PAYMENT_METHODS, parseListedOn, delistOn } from '../lib/channels';
 import { getDashboardStats } from '../lib/stats';
 import { getAnalytics } from '../lib/analytics';
 
@@ -23,8 +23,21 @@ const STAGE_FIELD: Record<ItemStatus, 'sourcedAt' | 'transitAt' | 'stockAt' | 's
   SOLD: 'soldAt',
 };
 
-function withDerived<T extends { salePrice: number | null; netProfit: number | null }>(item: T) {
-  return { ...item, marginPct: calcMarginPct(item as any) };
+function withDerived<
+  T extends {
+    status: string;
+    salePrice: number | null;
+    netProfit: number | null;
+    listedOn: string | null;
+    saleChannel: string | null;
+  },
+>(item: T) {
+  return {
+    ...item,
+    marginPct: calcMarginPct(item as any),
+    listedOn: parseListedOn(item.listedOn),
+    delistOn: delistOn(item),
+  };
 }
 
 // GET /api/items  ?status=&runnerId=&from=&to=&page=&limit=
@@ -196,6 +209,16 @@ itemsRouter.patch(
         throw new HttpError(400, `${f} must be one of: ${choices[f].join(', ')}`);
       }
       data[f] = b[f];
+    }
+
+    // Cross-listing: the platforms this bag is advertised on (array of SALE_CHANNELS).
+    if (b.listedOn !== undefined) {
+      const list: unknown = b.listedOn ?? [];
+      if (!Array.isArray(list) || list.some((c) => !(SALE_CHANNELS as readonly string[]).includes(c))) {
+        throw new HttpError(400, `listedOn must be an array of: ${SALE_CHANNELS.join(', ')}`);
+      }
+      const unique = [...new Set(list as string[])];
+      data.listedOn = unique.length ? unique.join(',') : null;
     }
 
     // Currency / purchase price recalculation.

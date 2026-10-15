@@ -40,6 +40,8 @@ export interface Item {
   saleSource?: string | null;
   saleChannel?: string | null;
   paymentMethod?: string | null;
+  listedOn?: string[]; // platforms the bag is advertised on
+  delistOn?: string[]; // SOLD only: platforms still to delete / mark reserved
   runnerId?: string | null;
   runner?: Runner | null;
   createdAt: string;

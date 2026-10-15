@@ -4,6 +4,7 @@ import { api } from '../api/endpoints';
 import { eur } from '../lib/format';
 import { totalCost } from '../lib/cost';
 import { SALE_CHANNELS, PAYMENT_METHODS } from '../lib/channels';
+import { DelistReminder } from './CrossListing';
 
 interface Props {
   item: Item;
@@ -28,6 +29,8 @@ export function RecordSaleModal({ item, onClose, onSold }: Props) {
   const [shipping, setShipping] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set after saving when the bag is still listed elsewhere → show the reminder.
+  const [soldItem, setSoldItem] = useState<Item | null>(null);
 
   const priceNum = Number(price);
   const feeNum = Number(fee) || 0;
@@ -62,11 +65,29 @@ export function RecordSaleModal({ item, onClose, onSold }: Props) {
         saleChannel: channel,
         paymentMethod: payment,
       });
-      onSold(updated);
+      if (updated.delistOn && updated.delistOn.length > 0) setSoldItem(updated);
+      else onSold(updated);
     } catch (e: any) {
       setError(e?.message || 'Could not record the sale');
       setBusy(false);
     }
+  }
+
+  if (soldItem) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center">
+        <div className="w-full max-w-md rounded-t-2xl border border-edge bg-card p-5 sm:rounded-2xl">
+          <h2 className="text-lg font-semibold text-neutral-100">Sold ✓</h2>
+          <p className="text-sm text-neutral-400">
+            {item.brand} · {item.model} — {soldItem.saleChannel}
+          </p>
+          <DelistReminder item={soldItem} onDone={() => onSold(soldItem)} />
+          <button onClick={() => onSold(soldItem)} className="btn-ghost mt-3 w-full">
+            Remind me later
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

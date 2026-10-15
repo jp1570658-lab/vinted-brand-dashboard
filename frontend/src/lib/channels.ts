@@ -19,3 +19,14 @@ export const PAYMENT_METHODS = [
   'PayPal',
   'Stripe',
 ] as const;
+
+/** "Instagram & Depop" / "Instagram, Depop & WhatsApp". */
+export function joinPlatforms(list: string[]): string {
+  if (list.length <= 1) return list.join('');
+  return `${list.slice(0, -1).join(', ')} & ${list[list.length - 1]}`;
+}
+
+/** Cross-listing reminder text for a sold bag still listed elsewhere. */
+export function delistMessage(list: string[]): string {
+  return `Marked as sold: remember to delete / mark reserved on ${joinPlatforms(list)}.`;
+}

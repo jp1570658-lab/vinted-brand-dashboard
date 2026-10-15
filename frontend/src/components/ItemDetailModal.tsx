@@ -7,6 +7,7 @@ import { COST_LINES, totalCost } from '../lib/cost';
 import { StatusBadge } from './StatusBadge';
 import { ItemImage } from './ItemImage';
 import { RecordSaleModal } from './RecordSaleModal';
+import { ListedOnPicker, DelistReminder } from './CrossListing';
 
 interface Props {
   item: Item | null;
@@ -123,6 +124,18 @@ export function ItemDetailModal({ item, onClose, onChanged }: Props) {
             {item.paymentMethod && <Row label="Paid via" value={item.paymentMethod} />}
             {item.saleSource && <Row label="Recorded" value={item.saleSource} />}
           </dl>
+
+          {item.status === 'SOLD' ? (
+            <DelistReminder
+              item={item}
+              onDone={() => {
+                onChanged();
+                onClose();
+              }}
+            />
+          ) : (
+            <ListedOnPicker item={item} onChanged={onChanged} />
+          )}
 
           <CostBreakdown item={item} busy={busy} onSave={(costs) => patch(costs)} />
 
