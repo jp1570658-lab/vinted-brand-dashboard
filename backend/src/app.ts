@@ -17,6 +17,7 @@ import { transactionsRouter } from './routes/transactions';
 import { syncRouter } from './routes/sync';
 import { aiRouter } from './routes/ai';
 import { googleRouter } from './routes/google';
+import { exportRouter } from './routes/export';
 
 export function createApp(): Express {
   const app = express();
@@ -98,6 +99,7 @@ export function createApp(): Express {
   app.use('/api/transactions', transactionsRouter);
   app.use('/api/sync', syncRouter);
   app.use('/api/ai', aiRouter);
+  app.use('/api/export', exportRouter);
 
   // In production, serve the built frontend.
   if (isProd) {

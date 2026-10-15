@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Analytics as AnalyticsData, BreakdownRow, MonthPoint } from '../api/types';
 import { api } from '../api/endpoints';
 import { TopNav } from '../components/TopNav';
+import { AccountingExport } from '../components/AccountingExport';
 import { KPICard } from '../components/KPICard';
 import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
@@ -71,6 +72,12 @@ export function Analytics() {
             <BreakdownTable title="By runner" label="Runner" rows={data.byRunner} />
           </>
         )}
+
+        {/* Accounting export — available even before the first sale (expenses, stock) */}
+        <section className="rounded-xl border border-edge bg-card p-4">
+          <h2 className="mb-3 text-sm font-semibold text-neutral-200">Accounting export</h2>
+          <AccountingExport />
+        </section>
       </div>
     </>
   );

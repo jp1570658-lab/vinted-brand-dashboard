@@ -87,6 +87,14 @@ Landed cost (migration `4_landed_cost`): net profit = salePrice − (purchasePri
 
 ---
 
+Accounting exports (Dashboard Upgrade §4B, CSV for Belgian Excel):
+
+| GET | /api/export/sales?month=YYYY-MM | Sales Journal: date, item, brand, platform, payment, gross, fees, net received, profit | yes |
+| GET | /api/export/purchases?month=YYYY-MM | Purchases & Logistics Journal: every expense with source, category, runner, fee, linked items | yes |
+| GET | /api/export/inventory?date=YYYY-MM-DD | Closing inventory valued at acquisition cost | yes |
+| GET | /api/runners/ledger | Runner balance: funds sent, bags waiting/shipped, outstanding | yes |
+| POST/DELETE | /api/transactions, /api/transactions/:id | Add / remove a hand-entered expense (WU, cash, card…) | yes |
+
 ## 4. INTEGRATION MAP
 
 - **Gmail (LIVE):** OAuth2 (`google-auth-library` + `googleapis`). Scopes: `gmail.readonly`, `gmail.send`. Routes `/api/auth/google` + `/callback`; refresh token → `GoogleToken`. Poller every 10 min: query `from:(noreply@vinted.fr OR noreply@vinted.com)`, parse "Vous avez vendu"/"You've sold", regex price `/€\s*([\d.,]+)/`, match IN_STOCK by Levenshtein ≥0.7 (FIFO on ties), set SOLD + `saleSource=AUTO_GMAIL`, else log `unmatched_sales.log`. Write `GmailSync`.

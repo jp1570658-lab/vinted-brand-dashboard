@@ -3,6 +3,7 @@ import type { Runner, RunnerBalance } from '../api/types';
 import { eur } from '../lib/format';
 import { api } from '../api/endpoints';
 import { TopNav } from '../components/TopNav';
+import { AccountingExport } from '../components/AccountingExport';
 import { useAuth } from '../hooks/useAuth';
 import { useLayout } from '../hooks/useLayout';
 
@@ -162,6 +163,11 @@ export function Settings() {
             <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location" className="input flex-1" />
             <button type="submit" className="btn-gold">Add</button>
           </form>
+        </Section>
+
+        {/* Accounting */}
+        <Section title="Accounting export">
+          <AccountingExport />
         </Section>
 
         {/* Security */}
