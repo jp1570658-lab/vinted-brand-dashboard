@@ -5,7 +5,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        base: '#0a0a0a',
+        page: '#0a0a0a',
         card: '#141414',
         edge: '#2a2a2a',
         gold: '#c9a84c',

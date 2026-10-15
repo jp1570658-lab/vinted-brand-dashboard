@@ -9,7 +9,7 @@ interface Props {
 export function TopNav({ title, lastSynced, onMenu }: Props) {
   const { mode, logout } = useAuth();
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between border-b border-edge bg-base/90 px-4 py-3 backdrop-blur">
+    <header className="sticky top-0 z-20 flex items-center justify-between border-b border-edge bg-page/90 px-4 py-3 backdrop-blur">
       <div className="flex items-center gap-3">
         {onMenu && (
           <button
